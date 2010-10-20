@@ -16,13 +16,13 @@
 ;;; Need a closure to capture the feed-url.
 (defn dispatch-generator
   "Return a fn to handle a completed response."
-  [feed-key feed-url response-callback]
+  [k u response-callback]
   (fn [state]
     (let [code (-> (c/status state) :code)
           headers (c/headers state)
           body (-> (c/body state) .toString)]
-      (response-callback feed-key
-                         feed-url
+      (response-callback k
+                         u
                          code
                          headers
                          body)
@@ -32,14 +32,14 @@
   "fetch a feed for updates.  Responses are handled asynchronously by the provided callback.
 
   The callback should accept five arguments: k, u, response code, headers, and body."
-  [[k u & headers] put-done]
+  [[k u & [headers]] put-done]
   (let [callbacks (merge async-req/*default-callbacks*
                          {:status status-check
                           :completed (dispatch-generator k u put-done)})
         req (async-req/prepare-request :get
-			     u
-			     :headers headers)
-	resp (apply async-req/execute-request
+                                       u
+                                       :headers headers)
+        resp (apply async-req/execute-request
                     req
                     (apply concat callbacks))]
     resp))
