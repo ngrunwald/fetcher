@@ -20,7 +20,7 @@
   (fn [state]
     (let [code (-> (c/status state) :code)
           headers (c/headers state)
-          body (-> (c/body state) .toString)]
+          body (c/string state)]
       (response-callback k
                          u
                          code
