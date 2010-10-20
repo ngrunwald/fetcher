@@ -8,14 +8,14 @@
 
 ;;TODO: it is more performant to get these io operations running in different threadpool.
 (defn create-handler
-  [handler get-feed set-feed & rm-feed]
-  (fn [feed-key feed-url headers body]  
+  [handler get-url set-url & rm-url]
+  (fn [k u headers body]  
     (let [right-now (format-last-modified (Date.))
-	  updated-feed (merge (get-feed feed-key)
-			      {:last-fetched right-now})]
-      (set-feed feed-key updated-feed)
-      (if rm-feed (rm-feed feed-key))
-      (handler feed-key feed-url headers body))))
+          updated-url (merge (get-url k)
+                             {:last-fetched right-now})]
+      (set-url k updated-url)
+      (when rm-url (rm-url k))
+      (handler k u headers body))))
 
 (defn perm-redirect-handler
   [handler]
@@ -31,7 +31,7 @@
     (handler k new-url headers body))))
 
 (defn nil-handler
-  [feed-key feed-url headers body]
+  [k u headers body]
     nil)
 
 (defn ok? [c] (= c :200))
@@ -47,10 +47,10 @@
 
 (defn create-default-handlers
   "Default map of status codes to appropriate handlers."
-  [ok-handler get-feed set-feed rm-feed put-ok put-redirect]
-  (let [ok-handler (create-handler ok-handler get-feed set-feed)
+  [ok-handler get-url set-url rm-url put-ok put-redirect]
+  (let [ok-handler (create-handler ok-handler get-url set-url)
         perm-redirect-handler (create-handler perm-redirect-handler
-					      get-feed set-feed rm-feed)]
+					      get-url set-url rm-url)]
     {:301 perm-redirect-handler
      :302 temp-redirect-handler
      :300 temp-redirect-handler
@@ -64,10 +64,11 @@
   HTTP request has completely read the response body and
   execute the matching handler."
   [handlers]
-  (fn [feed-key feed-url status-code headers body]
+  (fn [k u status-code headers body]
     (let [code (-> status-code str keyword)
-          handler (handlers code)]
-	  (cons code (handler feed-key feed-url headers body)))))
+          handler (handlers code)
+          result (handler k u headers body)]
+	  (cons code result))))
 
 (defn format-last-modified
   [date]
