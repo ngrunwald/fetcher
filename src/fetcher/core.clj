@@ -29,7 +29,7 @@
       [true :continue])))
 
 (defn fetch
-  "fetch a feed for updates.  Responses are handled asynchronously by the provided callback.
+  "Fetch a feed for updates.  Responses are handled asynchronously by the provided callback.
 
   The callback should accept five arguments: k, u, response code, headers, and body."
   [[k u & [headers]] put-done]
