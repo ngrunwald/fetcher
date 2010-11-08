@@ -88,15 +88,6 @@
 
 (defn ok? [c] (= c :200))
 
-(defn put-fetch [put-ok put-redirect]
-    {:301 put-redirect
-     :302 put-redirect
-     :300 put-redirect
-     :307 put-redirect
-     :410 identity
-     :404 identity
-     :200 put-ok})
-
 (defn create-default-handlers
   "Default map of status codes to appropriate handlers."
   [ok-handler get-url set-url rm-url put-ok put-redirect]
