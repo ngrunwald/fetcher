@@ -45,10 +45,18 @@
     resp))
 
 (defn fetch-pool
-  [get-work put-done]
-  (work/queue-work
-   fetch
-   get-work
-   put-done
-   (work/available-processors)
-   :async))
+  ([get-work put-done]
+     (work/queue-work
+      fetch
+      get-work
+      put-done
+      (work/available-processors)
+      :async))
+  ([get-work put-done error-handler]
+     (work/queue-work
+      fetch
+      get-work
+      put-done
+      (work/available-processors)
+      :async
+      error-handler)))
