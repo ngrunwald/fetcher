@@ -1,16 +1,17 @@
 (ns fetcher.core
   (:require [http.async.client :as c]
-            [http.async.client.request :as async-req])
-  (:use fetcher.handler)
-  (:require [work.core :as work])
-  (:require [work.cache :as cache]))
+            [http.async.client.request :as async-req]
+            [work.core :as work]
+            [work.cache :as cache]
+            [clojure.contrib.logging :as log])
+  (:use fetcher.handler))
 
 ;; TODO: Add more status checks for bodies we don't care about?
 (defn status-check
   "Check if status code is 304, abort if so."
   [_ status]
   (if (= 304 (:code status))
-    [status :abort]
+    :abort
     [status :continue]))
 
 ;;; Need a closure to capture the feed-url.
@@ -45,18 +46,12 @@
     resp))
 
 (defn fetch-pool
-  ([get-work put-done]
-     (work/queue-work
-      fetch
-      get-work
-      put-done
-      (work/available-processors)
-      :async))
-  ([get-work put-done error-handler]
-     (work/queue-work
-      fetch
-      get-work
-      put-done
-      (work/available-processors)
-      :async
-      error-handler)))
+  [get-work put-done & [error-handler]]
+  (let [args [fetch
+              get-work
+              put-done
+              (work/available-processors)
+              :async]]
+    (apply work/queue-work (if error-handler
+                             (conj args error-handler)
+                             args))))
