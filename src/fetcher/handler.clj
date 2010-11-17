@@ -35,19 +35,10 @@
 (defn create-handler
   [handler get-url set-url & [rm-url]]
   (fn [k u headers body]
-    (let [last-modified (or (get headers :last-modified nil)
-                            (get headers :date nil))
-          etag (or (get headers :etag nil)
-                   last-modified)
-          right-now (rfc822-str (Date.))
+    (let [right-now (rfc822-str (Date.))
           current-info (get-url k)
           updated-info (merge current-info
-                              {:last-fetched right-now
-                               :last-modified (or last-modified
-                                                  right-now)
-                               :etag (or etag
-                                         last-modified
-                                         right-now)})] 
+                              {:last-fetched right-now})] 
          ;; TODO: Maybe the handler fns should also receive url-info so
          ;; none of them need the get-url fn?
 
@@ -64,6 +55,25 @@
                                 u)))
            (set-url k updated-info))
          (handler k u headers body))))
+
+(defn update-feed
+  "A wrapper for a handler which should update the last-modified and etag values for a feed."
+  [handler get-url set-url]
+  (fn [k u headers body]
+    (let [last-modified (or (get headers :last-modified nil)
+                            (get headers :date nil))
+          etag (or (get headers :etag nil)
+                   last-modified)
+          right-now (rfc822-str (Date.))
+          current-info (get-url k)
+          updated-info (merge current-info
+                              {:last-modified (or last-modified
+                                                  right-now)
+                               :etag (or etag
+                                         last-modified
+                                         right-now)})]
+      (set-url k updated-info)
+      (handler k u headers body))))
 
 (defn perm-redirect
   [get-url submit-fetch-req]
@@ -94,7 +104,8 @@
 (defn create-default-handlers
   "Default map of status codes to appropriate handlers."
   [ok-handler get-url set-url rm-url put-ok put-redirect]
-  (let [ok-handler (create-handler ok-handler get-url set-url)
+  (let [ok-handler (create-handler (update-feed ok-handler get-url set-url)
+                                   get-url set-url)
         perm-redirect-handler (create-handler (perm-redirect get-url put-redirect)
                                               get-url set-url rm-url)
         temp-redirect-handler (create-handler (temp-redirect get-url put-redirect)
@@ -116,4 +127,5 @@
     (let [code (-> status-code str keyword)
           handler (handlers code)
           result (handler k u headers body)]
+      (log/info (format "Result is %s" (str result)))
       (cons code result))))
