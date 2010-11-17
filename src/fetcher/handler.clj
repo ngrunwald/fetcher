@@ -25,11 +25,12 @@
 (defn fetch-args
   "Return a vector of args that can be submitted to the fetch-pool
   from a given url-info map."
-  [url-info]
+  [k url-info]
   (let [url (url-info :url)
         headers {:If-Modified-Since (url-info :last-modified)
                  :If-None-Match (url-info :etag)}]
-    [url url headers]))
+
+    [k url headers]))
 
 ;;TODO: it is more performant to get these io operations running in different threadpool.
 (defn create-handler
@@ -72,16 +73,15 @@
     (let [new-url (:location headers)
           new-key new-url
           url-info (get-url new-key)]
-      (apply submit-fetch-req (fetch-args url-info)))))
+      (apply submit-fetch-req (fetch-args new-key url-info)))))
 
 (defn temp-redirect
   [get-url submit-fetch-req]
   (fn [k u headers body]
     (let [new-url (:location headers)
-          new-key new-url
-          url-info (get-url k)]
-      (apply submit-fetch-req (assoc (fetch-args url-info)
-                                :url new-url)))))
+	  url-info (assoc (get-url k) :url new-url)
+	  fetched-args (fetch-args k url-info)]
+      (apply submit-fetch-req fetched-args))))
 
 (defn nil-handler
   [k u headers body]
@@ -115,5 +115,4 @@
   (fn [k u status-code headers body]
     (let [code (-> status-code str keyword)
           handler (handlers code)
-          result (handler k u headers body)]
-      (cons code result))))
+          result (handler k u headers body)])))
