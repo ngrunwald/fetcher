@@ -50,7 +50,7 @@
           resp (apply async-req/execute-request
                       req
                       (apply concat callbacks))]
-      (log/debug (format "Fetching %s." k))
+      (log/debug (format "Fetching %s -> %s." k u))
       resp)
     (catch Exception e
       (log/error (format "Error fetching %s." k) e))))
