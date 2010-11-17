@@ -34,7 +34,7 @@
 ;;TODO: it is more performant to get these io operations running in different threadpool.
 (defn create-handler
   [handler get-url set-url & [rm-url]]
-  (fn [k u headers body]  
+  (fn [k u headers body]
     (let [last-modified (or (get headers :last-modified nil)
                             (get headers :date nil))
           etag (or (get headers :etag nil)
@@ -47,27 +47,28 @@
                                                   right-now)
                                :etag (or etag
                                          last-modified
-                                         right-now)})]
-      ;; TODO: Maybe the handler fns should also receive url-info so
-      ;; none of them need the get-url fn?
+                                         right-now)})] 
+         ;; TODO: Maybe the handler fns should also receive url-info so
+         ;; none of them need the get-url fn?
 
-      ;; We assume that updating the store in a 301 response is what should be done.
-      ;; Otherwise the perm-redirect handler will need the rm-url fn.
-      (if rm-url
-        (if-let [new-url (:location headers)]
-          (let [new-key new-url
-                updated-url-info (assoc current-info
-                               :url new-url)]
-            (do (set-url new-key updated-url-info)
-                (rm-url k)))
-          (log/error (format "No location in permanent redirect response for url: %s"
-                             u)))
-        (set-url k updated-info))
-      (handler k u headers body))))
+         ;; We assume that updating the store in a 301 response is what should be done.
+         ;; Otherwise the perm-redirect handler will need the rm-url fn.
+         (if rm-url
+           (if-let [new-url (:location headers)]
+             (let [new-key new-url
+                   updated-url-info (assoc current-info
+                                      :url new-url)]
+               (do (set-url new-key updated-url-info)
+                   (rm-url k)))
+             (log/error (format "No location in permanent redirect response for url: %s"
+                                u)))
+           (set-url k updated-info))
+         (handler k u headers body))))
 
 (defn perm-redirect
   [get-url submit-fetch-req]
   (fn [k u headers body]
+    (log/debug (format "Perm redirect for %s" k))
     (let [new-url (:location headers)
           new-key new-url
           url-info (get-url new-key)]
@@ -86,7 +87,9 @@
   [k u headers body]
     nil)
 
-(defn ok? [c] (= c :200))
+(defn ok? [c] (or (= c :200)
+                  (= c 200)
+                  (= c "200")))
 
 (defn create-default-handlers
   "Default map of status codes to appropriate handlers."
@@ -113,4 +116,4 @@
     (let [code (-> status-code str keyword)
           handler (handlers code)
           result (handler k u headers body)]
-	  (cons code result))))
+      (cons code result))))
