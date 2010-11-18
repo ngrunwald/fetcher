@@ -40,27 +40,28 @@
           current-info (get-url k)
           updated-info (merge current-info
                               {:last-fetched right-now})] 
-         ;; TODO: Maybe the handler fns should also receive url-info so
-         ;; none of them need the get-url fn?
-
-         ;; We assume that updating the store in a 301 response is what should be done.
-         ;; Otherwise the perm-redirect handler will need the rm-url fn.
-         (if rm-url
-           (if-let [new-url (:location headers)]
-             (let [new-key new-url
-                   updated-url-info (assoc current-info
-                                      :url new-url)]
-               (do (set-url new-key updated-url-info)
-                   (rm-url k)))
-             (log/error (format "No location in permanent redirect response for url: %s"
-                                u)))
-           (set-url k updated-info))
-         (handler k u headers body))))
+      ;; TODO: Maybe the handler fns should also receive url-info so
+      ;; none of them need the get-url fn?
+      
+      ;; We assume that updating the store in a 301 response is what should be done.
+      ;; Otherwise the perm-redirect handler will need the rm-url fn.
+      (if rm-url
+        (if-let [new-url (:location headers)]
+          (let [new-key new-url
+                updated-url-info (assoc current-info
+                                   :url new-url)]
+            (do (set-url new-key updated-url-info)
+                (rm-url k)))
+          (log/error (format "No location in permanent redirect response for url: %s"
+                             u)))
+        (set-url k updated-info))
+      (handler k u headers body))))
 
 (defn update-feed
   "A wrapper for a handler which should update the last-modified and etag values for a feed."
   [handler get-url set-url]
   (fn [k u headers body]
+    (log/debug (format "Updating feed entry for %s" k))
     (let [last-modified (or (get headers :last-modified nil)
                             (get headers :date nil))
           etag (or (get headers :etag nil)
@@ -74,6 +75,7 @@
                                          last-modified
                                          right-now)})]
       (set-url k updated-info)
+      (log/debug (format "About to ok-handle %s" k))
       (handler k u headers body))))
 
 (defn perm-redirect
@@ -114,6 +116,8 @@
      :302 temp-redirect-handler
      :300 temp-redirect-handler
      :307 temp-redirect-handler
+     :304 nil-handler
+     :400 nil-handler
      :410 nil-handler
      :404 nil-handler
      :200 ok-handler}))
@@ -126,4 +130,6 @@
   (fn [k u status-code headers body]
     (let [code (-> status-code str keyword)
           handler (handlers code)
+          _ (when-not handler
+              (log/error (format "Handler for %s -> %s with status %s is nil." k u status-code)))
           result (handler k u headers body)])))

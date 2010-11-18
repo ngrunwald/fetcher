@@ -22,9 +22,12 @@
   (fn [state]
     (try
       (let [code (-> (c/status state) :code)
-            headers (c/headers state)
-            ;; The body call will block if no body exists, only care about the body if response is 200 OK.
-            body (when (ok? code) (c/string state))]
+            headers (if (not= 304 code)
+                      (c/headers state)
+                      nil)
+            body (if (ok? code)
+                   (c/string state)
+                   nil)]
         (response-callback k
                            u
                            code
