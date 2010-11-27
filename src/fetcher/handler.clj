@@ -103,24 +103,27 @@
                   (= c 200)
                   (= c "200")))
 
-(defn create-default-handlers
+(defn create-handlers-map
   "Default map of status codes to appropriate handlers."
-  [ok-handler get-url set-url rm-url put-ok put-redirect]
+  [ok-handler put-ok put-redirect get-url set-url rm-url]
   (let [ok-handler (create-handler (update-feed ok-handler get-url set-url)
                                    get-url set-url)
         perm-redirect-handler (create-handler (perm-redirect get-url put-redirect)
                                               get-url set-url rm-url)
         temp-redirect-handler (create-handler (temp-redirect get-url put-redirect)
                                               get-url set-url)]
-    {:301 perm-redirect-handler
-     :302 temp-redirect-handler
+    {:200 ok-handler
      :300 temp-redirect-handler
-     :307 temp-redirect-handler
+     :301 perm-redirect-handler
+     :302 temp-redirect-handler
      :304 nil-handler
+     :307 temp-redirect-handler
      :400 nil-handler
+     :401 nil-handler
      :410 nil-handler
      :404 nil-handler
-     :200 ok-handler}))
+     :500 nil-handler
+     :503 nil-handler}))
 
 (defn create-response-callback
   "Create callback that will be called once the async
