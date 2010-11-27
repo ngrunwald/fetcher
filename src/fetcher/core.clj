@@ -6,7 +6,6 @@
             [clojure.contrib.logging :as log])
   (:use fetcher.handler))
 
-;; TODO: Add more status checks for bodies we don't care about?
 (defn status-check
   "Check if status code is 304, abort if so."
   [_ status]
