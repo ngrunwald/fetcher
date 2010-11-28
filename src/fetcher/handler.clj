@@ -50,8 +50,10 @@
           (let [new-key new-url
                 updated-url-info (assoc current-info
                                    :url new-url)]
-            (do (set-url new-key updated-url-info)
-                (rm-url k)))
+            (set-url new-key updated-url-info)
+            (if (not= k new-key)
+              (rm-url k)
+              (log/error (format "New and old key are the same, %s." k))))
           (log/error (format "No location in permanent redirect response for url: %s"
                              u)))
         (set-url k updated-info))
