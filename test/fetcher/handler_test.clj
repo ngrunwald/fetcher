@@ -85,3 +85,21 @@
       (is (= new-url req-u))
       (is (= new-url (-> (get-url new-url) :url)))
       (is (empty? fetch-req-q)))))
+
+(deftest same-old-and-new-perm-redirect
+  (let [k "http://clojure.org"
+        u "http://clojure.org"
+        h {:location k}
+        b "The body text."
+        put-redirect (fn [k u h] (.offer fetch-req-q (prn-str [k u h])))
+        handler (create-handler (perm-redirect get-url
+                                               put-redirect)
+                                get-url
+                                set-url
+                                rm-url)]
+    (set-url k {:url u})
+    (handler k u h b)
+    (is (not (nil? (get-url k))))
+    (is (= u (-> (get-url k) :url)))
+    (.take fetch-req-q)
+    (is (empty? fetch-req-q))))
