@@ -19,51 +19,42 @@
   "Return a fn to handle a completed response."
   [k u response-callback]
   (fn [state]
-    (try
-      (let [code (-> (c/status state) :code)
-            headers (if (not= 304 code)
-                      (c/headers state)
-                      nil)
-            body (if (ok? code)
-                   (c/string state)
-                   nil)]
-        (response-callback k
-                           u
-                           code
-                           headers
-                           body)
-          [true :continue])
-      (catch Exception e
-        (log/error (format "Error handling response in callback for %s" k) e)))))
+    (let [code (-> (c/status state) :code)
+          headers (if (not= 304 code)
+                    (c/headers state)
+                    nil)
+          body (if (ok? code)
+                 (c/string state)
+                 nil)]
+      (response-callback k
+                         u
+                         code
+                         headers
+                         body)
+      [true :continue])))
 
 (defn fetch
   "Fetch a feed for updates.  Responses are handled asynchronously by the provided callback.
 
   The callback should accept five arguments: k, u, response code, headers, and body."
   [[k u & [headers]] put-done]
-  (try
-    (let [callbacks (merge async-req/*default-callbacks*
-                           {:status status-check
-                            :completed (dispatch-generator k u put-done)
-                            :error (fn [_ t] (log/error (format "Error processing request for %s." k) t))})
-          req (async-req/prepare-request :get
-                                         u
-                                         :headers headers)
-          resp (apply async-req/execute-request
-                      req
-                      (apply concat callbacks))]
-      (log/debug (format "Fetching %s -> %s." k u))
-      resp)
-    (catch Exception e
-      (log/error (format "Error fetching %s." k) e))))
+  (let [callbacks (merge async-req/*default-callbacks*
+                         {:status status-check
+                          :completed (dispatch-generator k u put-done)
+                          :error (fn [_ t] (log/error (format "Error processing request for %s." k) t))})
+        req (async-req/prepare-request :get
+                                       u
+                                       :headers headers)
+        resp (apply async-req/execute-request
+                    req
+                    (apply concat callbacks))]
+    (log/debug (format "Fetching %s -> %s." k u))
+    resp))
 
 (defn fetch-pool
-  [get-work put-done & [error-handler]]
-  (let [args [fetch
-              get-work
-              put-done
-              (work/available-processors)
-              :async]]
-    (apply work/queue-work (if error-handler
-                             (conj args error-handler)
-                             args))))
+  [fetch-fn get-work put-done]
+  (work/queue-work fetch-fn
+                   get-work
+                   put-done
+                   (work/available-processors)
+                   :async))
