@@ -1,5 +1,6 @@
 (ns fetcher.handler
   "Some default handlers for working with fetcher response."
+  (:use [plumbing.core :only [with-obs]])
   (:require [clojure.java.io :as io]
             [clojure.contrib.logging :as log]
             [clj-time.format :as time-fmt]
@@ -33,9 +34,9 @@
     [k url headers]))
 
 ;;TODO: it is more performant to get these io operations running in different threadpool.
-(defn create-handler
-  [handler get-url set-url & [rm-url]]
-  (fn [k u headers body]
+(defn mk-handler-observer
+  [get-url set-url & [rm-url]]
+  (fn [_ [k u headers body]]
     (let [right-now (rfc822-str (Date.))
           current-info (get-url k)
           updated-info (merge current-info
@@ -56,13 +57,12 @@
               (log/error (format "New and old key are the same, %s." k))))
           (log/error (format "No location in permanent redirect response for url: %s"
                              u)))
-        (set-url k updated-info))
-      (handler k u headers body))))
+        (set-url k updated-info)))))
 
-(defn update-feed
+(defn mk-update-feed-observer
   "A wrapper for a handler which should update the last-modified and etag values for a feed."
-  [handler get-url set-url]
-  (fn [k u headers body]
+  [get-url set-url]
+  (fn [_ [ k u headers body]]
     (log/debug (format "Updating feed entry for %s" k))
     (let [last-modified (or (get headers :last-modified nil)
                             (get headers :date nil))
@@ -77,8 +77,7 @@
                                          last-modified
                                          right-now)})]
       (set-url k updated-info)
-      (log/debug (format "About to ok-handle %s" k))
-      (handler k u headers body))))
+      (log/debug (format "About to ok-handle %s" k)))))
 
 (defn perm-redirect
   [get-url submit-fetch-req]
@@ -107,25 +106,15 @@
 
 (defn create-handlers-map
   "Default map of status codes to appropriate handlers."
-  [ok-handler put-ok put-redirect get-url set-url rm-url]
-  (let [ok-handler (create-handler (update-feed ok-handler get-url set-url)
-                                   get-url set-url)
-        perm-redirect-handler (create-handler (perm-redirect get-url put-redirect)
-                                              get-url set-url rm-url)
-        temp-redirect-handler (create-handler (temp-redirect get-url put-redirect)
-                                              get-url set-url)]
-    {:200 ok-handler
+  [ok-handler  put-redirect get-url set-url rm-url]
+  (let [handler-observer (mk-handler-observer get-url set-url rm-url)
+	perm-redirect-handler (with-obs handler-observer (perm-redirect get-url put-redirect))        
+        temp-redirect-handler (with-obs handler-observer (temp-redirect get-url put-redirect))]
+    {:200 (with-obs handler-observer  ok-handler)
      :300 temp-redirect-handler
      :301 perm-redirect-handler
      :302 temp-redirect-handler
-     :304 nil-handler
-     :307 temp-redirect-handler
-     :400 nil-handler
-     :401 nil-handler
-     :410 nil-handler
-     :404 nil-handler
-     :500 nil-handler
-     :503 nil-handler}))
+     :307 temp-redirect-handler}))
 
 (defn create-response-callback
   "Create callback that will be called once the async
@@ -134,7 +123,7 @@
   [handlers]
   (fn [k u status-code headers body]
     (let [code (-> status-code str keyword)
-          handler (handlers code)
-          _ (when-not handler
-              (log/error (format "Handler for %s -> %s with status %s is nil." k u status-code)))
-          result (handler k u headers body)])))
+          handler (handlers code)]
+      (when-not handler
+          (log/error (format "Handler for %s -> %s with status %s is nil." k u status-code)))
+      (handler k u headers body))))

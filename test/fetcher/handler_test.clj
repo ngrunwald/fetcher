@@ -1,7 +1,8 @@
 (ns fetcher.handler-test
   (:use clojure.test
-        [fetcher.handler :only [create-handler
-                                update-feed
+	[plumbing.core :only [with-obs]]
+        [fetcher.handler :only [mk-handler-observer
+                                mk-update-feed-observer
                                 temp-redirect
                                 perm-redirect]])
   (:import (java.util.concurrent LinkedBlockingQueue)))
@@ -38,11 +39,9 @@
            :server "lighttpd/1.4.19"
            :vary "Accept-Encoding"}
         b "The body text."
-        handler (create-handler (update-feed (fn [k u h b] b)
-                                             get-url
-                                             set-url)
-                                get-url
-                                set-url)]
+        handler (->> (fn [k u h b] b)
+		     (with-obs (mk-update-feed-observer get-url set-url))
+		     (with-obs (mk-handler-observer get-url set-url)))]
     (is (= b (handler k u h b)))
     (is (= (:etag h) (-> (get-url k) :etag)))
     (is (= (:last-modified h) (-> (get-url k) :last-modified)))))
@@ -54,10 +53,9 @@
         h {:location new-url}
         b "The body text."
         put-redirect (fn [k u h] (.offer fetch-req-q (prn-str [k u h])))
-        handler (create-handler (temp-redirect get-url
-                                               put-redirect)
-                                get-url
-                                set-url)]
+        handler (with-obs (mk-handler-observer get-url set-url)
+		  (temp-redirect get-url
+				 put-redirect))]
     (set-url k {:url u})
     (handler k u h b)
     (let [[req-k req-u req-h] (-> (.take fetch-req-q)
@@ -73,11 +71,9 @@
         h {:location new-url}
         b "The body text."
         put-redirect (fn [k u h] (.offer fetch-req-q (prn-str [k u h])))
-        handler (create-handler (perm-redirect get-url
-                                               put-redirect)
-                                get-url
-                                set-url
-                                rm-url)]
+        handler (with-obs
+		  (mk-handler-observer get-url set-url rm-url)
+		  (perm-redirect get-url put-redirect))]
     (set-url k {:url u})
     (handler k u h b)
     (let [[req-k req-u req-h] (-> (.take fetch-req-q)
@@ -92,11 +88,9 @@
         h {:location k}
         b "The body text."
         put-redirect (fn [k u h] (.offer fetch-req-q (prn-str [k u h])))
-        handler (create-handler (perm-redirect get-url
-                                               put-redirect)
-                                get-url
-                                set-url
-                                rm-url)]
+        handler (with-obs
+		  (mk-handler-observer get-url set-url)
+		  (perm-redirect get-url put-redirect))]
     (set-url k {:url u})
     (handler k u h b)
     (is (not (nil? (get-url k))))
