@@ -23,9 +23,8 @@
           headers (if (not= 304 code)
                     (c/headers state)
                     nil)
-          body (if (ok? code)
-                 (c/string state)
-                 nil)]
+          body (when (ok? code)
+                 (c/string state))]
       (response-callback k
                          u
                          code
@@ -42,12 +41,8 @@
                          {:status status-check
                           :completed (dispatch-generator k u put-done)
                           :error (fn [_ t] (log/error (format "Error processing request for %s." k) t))})
-        req (async-req/prepare-request :get
-                                       u
-                                       :headers headers)
-        resp (apply async-req/execute-request
-                    req
-                    (apply concat callbacks))]
+        req (async-req/prepare-request :get u  :headers headers)                                 
+        resp (apply async-req/execute-request req (apply concat callbacks))]   
     (log/debug (format "Fetching %s -> %s." k u))
     resp))
 
