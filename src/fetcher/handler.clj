@@ -3,25 +3,17 @@
   (:use [plumbing.core :only [with-obs]])
   (:require [clojure.java.io :as io]
             [clojure.contrib.logging :as log]
-            [clj-time.format :as time-fmt]
-            [clj-time.coerce :as time-coerce])
+            [clj-time.core :as time]
+            [clj-time.format :as time-fmt])
   (:import [java.util Date]))
 
 ;;; Note that the Last-Modified HTTP header is kept
 ;;; in RFC 822 format since it's only used for requests.
-(defprotocol DateTime
-  (rfc822-str [d]))
 
-(def rfc822-fmt (time-fmt/formatter "EEE, dd MMM yyyy HH:mm:ss Z"))
-
-(extend-type java.util.Date
-  DateTime
-  (rfc822-str [d] (rfc822-str (time-coerce/from-date d))))
-
-(extend-type org.joda.time.DateTime
-  DateTime
-  (rfc822-str [d]
-              (time-fmt/unparse rfc822-fmt d)))
+(defn- rfc822-now
+  []
+  (time-fmt/unparse (time-fmt/formatters :rfc822)
+                    (time/now)))
 
 (defn fetch-args
   "Return a vector of args that can be submitted to the fetch-pool
@@ -37,7 +29,7 @@
 (defn mk-handler-observer
   [get-url set-url & [rm-url]]
   (fn [_ [k u headers body]]
-    (let [right-now (rfc822-str (Date.))
+    (let [right-now (rfc822-now)
           current-info (get-url k)
           updated-info (merge current-info
                               {:last-fetched right-now})] 
@@ -68,7 +60,7 @@
                             (get headers :date nil))
           etag (or (get headers :etag nil)
                    last-modified)
-          right-now (rfc822-str (Date.))
+          right-now (rfc822-now)
           current-info (get-url k)
           updated-info (merge current-info
                               {:last-modified (or last-modified
@@ -103,18 +95,6 @@
 (defn ok? [c] (or (= c :200)
                   (= c 200)
                   (= c "200")))
-
-(defn create-handlers-map
-  "Default map of status codes to appropriate handlers."
-  [ok-handler  put-redirect get-url set-url rm-url]
-  (let [handler-observer (mk-handler-observer get-url set-url rm-url)
-	perm-redirect-handler (with-obs handler-observer (perm-redirect get-url put-redirect))        
-        temp-redirect-handler (with-obs handler-observer (temp-redirect get-url put-redirect))]
-    {:200 (with-obs handler-observer  ok-handler)
-     :300 temp-redirect-handler
-     :301 perm-redirect-handler
-     :302 temp-redirect-handler
-     :307 temp-redirect-handler}))
 
 (defn create-response-callback
   "Create callback that will be called once the async
