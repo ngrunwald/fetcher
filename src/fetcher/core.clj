@@ -3,8 +3,7 @@
             [http.async.client.request :as async-req]
             [work.core :as work]
             [work.cache :as cache]
-            [clojure.contrib.logging :as log])
-  (:use fetcher.handler))
+            [clojure.contrib.logging :as log]))
 
 (defn status-check
   "Check if status code is 304, abort if so."
@@ -13,6 +12,10 @@
   (if (= 304 (:code status))
     [status :abort]
     [status :continue]))
+
+(defn ok? [c] (or (= c :200)
+                  (= c 200)
+                  (= c "200")))
 
 ;;; Need a closure to capture the feed-url.
 (defn dispatch-generator
@@ -46,10 +49,12 @@
     (log/debug (format "Fetching %s -> %s." k u))
     resp))
 
-(defn fetch-pool
-  [fetch-fn get-work put-done]
-  (work/queue-work fetch-fn
-                   get-work
-                   put-done
-                   (work/available-processors)
-                   :async))
+(defn schedule-fetches
+  "Schedule work to fetch with a frequency given in seconds."
+  ([get-urls freq enqueue]
+     (work/schedule-work
+      (fn [] (doseq [{:keys [url last-modified etag]} (get-urls)]
+                 (let [headers {:If-Modified-Since last-modified
+                                :If-None-Match etag}]
+                   (enqueue url url headers)))))
+      freq))
