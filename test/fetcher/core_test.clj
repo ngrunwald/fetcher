@@ -12,12 +12,13 @@
        (assoc res k p)))
    {} m))
 
-(deftest dispatch-generator-test
+(deftest callback-test
   (let [m (atom nil)
 	callback (fn [& args]
 		   (let [body (last args)]
 		     (swap! m (constantly body))))
-	dg (dispatch-generator "key" "http://dl.dropbox.com/u/1205228/test.txt" callback)
+	dg (with-url "key" "http://dl.dropbox.com/u/1205228/test.txt"
+	     callback)
 	state (promise-map {
 			    :status {:code 200}
 			    :headers {:content-type "text/plain; charset=ascii"}

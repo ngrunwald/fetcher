@@ -5,6 +5,7 @@
                  [http.async.client "0.2.1"]
                  [javax.mail/mail "1.4.3"]
                  [work "0.1.3-SNAPSHOT"]
+		 [webmine "0.1.3-SNAPSHOT"]
 		 [clj-sys/plumbing "0.1.3-SNAPSHOT"]
                  [crane "1.0-SNAPSHOT"]
                  [clj-time "0.1.0-RC1"]]

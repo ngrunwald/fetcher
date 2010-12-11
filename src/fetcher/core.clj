@@ -1,14 +1,15 @@
 (ns fetcher.core
+  (:use work.graph)
   (:require [http.async.client :as c]
             [http.async.client.request :as async-req]
             [work.core :as work]
             [work.cache :as cache]
+            [webmine.urls :as wm.urls]
             [clojure.contrib.logging :as log]))
 
 (defn status-check
   "Check if status code is 304, abort if so."
   [_ status]
-  (log/debug (format "Status check, status is %s" status))
   (if (= 304 (:code status))
     [status :abort]
     [status :continue]))
@@ -17,10 +18,62 @@
                   (= c 200)
                   (= c "200")))
 
-;;; Need a closure to capture the feed-url.
-(defn dispatch-generator
-  "Return a fn to handle a completed response."
-  [k u response-callback]
+(defn on-request [k u s h b]
+    (-> s str keyword))
+
+(defn with-pre
+  "Preprocess arguments with pre and apply the processed arguments to the given functions."
+  [pre & fs]
+  (fn [& args]
+    (let [new-args (apply pre args)]
+      (doseq [f fs]
+        (apply f new-args)))))
+
+(defn temp-url-req
+  [k u s h b]
+  [k (wm.urls/expand-relative-url u (:location h))])
+
+(defn new-key-and-url-req
+  [k u s h b]
+  (let [new-url (wm.urls/expand-relative-url u (:location h))
+        new-key new-url]
+    [new-key new-url]))
+
+(defn new-key-and-url-resp
+  [k u s h b]
+  (let [new-url (:location h)
+        new-key new-url]
+    [new-key new-url s h b]))
+
+(defn redirect
+"dispatch table with redirect policy."
+[update-fetch out & [update move]]
+  (if move
+    (table 
+     :301 [move
+	       (with-pre new-key-and-url-resp
+		 update-fetch
+		 update)
+		 (with-pre new-key-and-url-req
+		 out)]
+	 [:300 :302 :307]
+	 [update-fetch
+	  (with-pre temp-url-req out)])
+    (table
+	 [:300 :301 :302 :307]
+	 [update-fetch
+	  (with-pre temp-url-req out)])))
+
+(defn response-table
+  [update-fetch update put-ok]
+  (table :200 [update-fetch update put-ok]
+	 [:400 :304 :401 :410 :404 :408 :500 :503]
+	 update-fetch))
+
+(defn with-url
+  "wraps a callback in a key and url.
+   callback takes key, url, status code, hearders and body."
+  [k u callback]
   (fn [state]
     (let [code (-> (c/status state) :code)
           headers (if (not= 304 code)
@@ -28,11 +81,11 @@
                     nil)
           body (when (ok? code)
                  (c/string state))]
-      (response-callback k
-                         u
-                         code
-                         headers
-                         body)
+      (callback k
+		u
+		code
+		headers
+		body)
       [true :continue])))
 
 (defn fetch
@@ -42,13 +95,14 @@
   [[k u & [headers]] put-done]
   (let [callbacks (merge async-req/*default-callbacks*
                          {:status status-check
-                          :completed (dispatch-generator k u put-done)
-                          :error (fn [_ t] (log/error (format "Error processing request for %s." k) t))})
-        req (async-req/prepare-request :get u  :headers headers)                                 
-        resp (apply async-req/execute-request req (apply concat callbacks))]   
-    (log/debug (format "Fetching %s -> %s." k u))
-    resp))
-
+                          :completed (with-url k u put-done)
+                          :error (fn [_ t]
+				   (log/error
+				    (format "Error processing request for %s."
+					    k) t))})
+        req (async-req/prepare-request :get u  :headers headers)]
+    (apply async-req/execute-request req (apply concat callbacks))))
+    
 (defn schedule-fetches
   "Schedule work to fetch with a frequency given in seconds."
   ([get-urls freq enqueue]
