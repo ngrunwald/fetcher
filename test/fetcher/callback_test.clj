@@ -9,7 +9,7 @@
 	work.graph
 	fetcher.callback
         [plumbing.core :only [with-silent with-wait with-log
-			      with-timeout wait-until]])
+                              with-timeout wait-until]])
   (:import [java.util.concurrent ConcurrentHashMap]))
 
 (declare ok-resp
