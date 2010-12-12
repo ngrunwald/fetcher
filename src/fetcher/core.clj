@@ -29,23 +29,14 @@
       (doseq [f fs]
         (f new-args)))))
 
-(defn temp-url [{k :key h :header :as m}]
-		   (assoc m :url (:location h)))
-
-(defn temp-url-req
+(defn use-redirect
   [{h :headers u :url :as resp}]
   (let [url (wm.urls/expand-relative-url u (:location h))]
     (assoc resp :url url)))
 
-(defn new-key-and-url-req
-  [{h :headers u :url :as resp}]
-  (let [url (wm.urls/expand-relative-url u (:location h))]
-    (assoc resp :key url :url url)))
-
-(defn new-key-and-url-resp
-  [{h :headers :as resp}]
-  (let [url (:location h)]
-    (assoc resp :key url :url url)))
+(defn url-as-key
+  [{u :url :as resp}]
+  (assoc resp :key u))
 
 (defn redirect
 "dispatch table with redirect policy."
@@ -53,18 +44,18 @@
   (if move
     (table 
      :301 [move
-	       (with-pre new-key-and-url-resp
-		 update-fetch
-		 update)
-		 (with-pre new-key-and-url-req
-		 out)]
+	       (with-pre #(-> % use-redirect url-as-key)
+             update-fetch
+             update)
+           (with-pre #(-> % use-redirect url-as-key)
+             out)]
 	 [:300 :302 :307]
 	 [update-fetch
-	  (with-pre temp-url-req out)])
+	  (with-pre use-redirect out)])
     (table
 	 [:300 :301 :302 :307]
 	 [update-fetch
-	  (with-pre temp-url out)])))
+	  (with-pre use-redirect out)])))
 
 (defn response-table
   [update-fetch update put-ok]
