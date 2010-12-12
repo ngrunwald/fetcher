@@ -14,9 +14,8 @@
 
 (deftest callback-test
   (let [m (atom nil)
-	callback (fn [& args]
-		   (let [body (last args)]
-		     (swap! m (constantly body))))
+	callback (fn [{body :body}]
+		     (swap! m (constantly body)))
 	dg (with-url "key" "http://dl.dropbox.com/u/1205228/test.txt"
 	     callback)
 	state (promise-map {
@@ -31,9 +30,8 @@
 
 (deftest fetch-test
   (let [m (promise)
-	callback (fn [& args]
-		   (let [body (last args)]
-		     (deliver m body)))]
+	callback (fn [{b :body}]
+		     (deliver m b))]
     (fetch ["key"  "http://dl.dropbox.com/u/1205228/test.txt"] callback)
     (is (= @m "This is a test.\n"))))
 

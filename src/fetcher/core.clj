@@ -18,32 +18,34 @@
                   (= c 200)
                   (= c "200")))
 
-(defn on-request [k u s h b]
+(defn on-response [{s :status}]
     (-> s str keyword))
 
 (defn with-pre
   "Preprocess arguments with pre and apply the processed arguments to the given functions."
   [pre & fs]
-  (fn [& args]
-    (let [new-args (apply pre args)]
+  (fn [args]
+    (let [new-args (pre args)]
       (doseq [f fs]
-        (apply f new-args)))))
+        (f new-args)))))
+
+(defn temp-url [{k :key h :header :as m}]
+		   (assoc m :url (:location h)))
 
 (defn temp-url-req
-  [k u s h b]
-  [k (wm.urls/expand-relative-url u (:location h))])
+  [{h :headers u :url :as resp}]
+  (let [url (wm.urls/expand-relative-url u (:location h))]
+    (assoc resp :url url)))
 
 (defn new-key-and-url-req
-  [k u s h b]
-  (let [new-url (wm.urls/expand-relative-url u (:location h))
-        new-key new-url]
-    [new-key new-url]))
+  [{h :headers u :url :as resp}]
+  (let [url (wm.urls/expand-relative-url u (:location h))]
+    (assoc resp :key url :url url)))
 
 (defn new-key-and-url-resp
-  [k u s h b]
-  (let [new-url (:location h)
-        new-key new-url]
-    [new-key new-url s h b]))
+  [{h :headers :as resp}]
+  (let [url (:location h)]
+    (assoc resp :key url :url url)))
 
 (defn redirect
 "dispatch table with redirect policy."
@@ -62,7 +64,7 @@
     (table
 	 [:300 :301 :302 :307]
 	 [update-fetch
-	  (with-pre temp-url-req out)])))
+	  (with-pre temp-url out)])))
 
 (defn response-table
   [update-fetch update put-ok]
@@ -81,11 +83,11 @@
                     nil)
           body (when (ok? code)
                  (c/string state))]
-      (callback k
-		u
-		code
-		headers
-		body)
+      (callback {:key k
+		 :url u
+		 :status code
+		 :headers headers
+		 :body body})
       [true :continue])))
 
 (defn fetch
