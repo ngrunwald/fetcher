@@ -1,6 +1,5 @@
 (ns fetcher.callback
-  (:require [work.queue :as workq]
-            (clj-time [core :as time]
+  (:require (clj-time [core :as time]
                       [format :as time-fmt]
                       [coerce :as time-coerce])))
 

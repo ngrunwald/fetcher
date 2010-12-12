@@ -121,9 +121,9 @@
 (defn mk-test-feed-fetcher
   []
   (work/queue-work
-   fetch/fetch
-   #(workq/poll poll-req-q)
-   (dispatch fetch/on-response
+   {:f fetch/fetch
+    :in #(workq/poll poll-req-q)
+    :out (dispatch fetch/on-response
 	     (fetch/response-table
 	      (mk-update-fetch get-feed set-feed)
 	      (mk-update-feed get-feed set-feed)
@@ -133,8 +133,7 @@
 	      #(workq/offer poll-req-q %)
 	      (mk-update-fetch get-feed set-feed)
 	      (mk-move-feed get-feed set-feed rm-feed)))
-   (work/available-processors)
-   :async))
+    :exec work/async}))
 
 (deftest feed-fetch
   (let [fetch-pool (mk-test-feed-fetcher)

@@ -2,8 +2,6 @@
   (:use work.graph)
   (:require [http.async.client :as c]
             [http.async.client.request :as async-req]
-            [work.core :as work]
-            [work.cache :as cache]
             [webmine.urls :as wm.urls]
             [clojure.contrib.logging :as log]))
 
@@ -98,10 +96,8 @@
     
 (defn schedule-fetches
   "Schedule work to fetch with a frequency given in seconds."
-  ([get-urls freq enqueue]
-     (work/schedule-work
-      (fn [] (doseq [{:keys [url last-modified etag]} (get-urls)]
-                 (let [headers {:If-Modified-Since last-modified
-                                :If-None-Match etag}]
-                   (enqueue url url headers)))))
-      freq))
+  ([get-urls enqueue]
+     (fn [] (doseq [{:keys [url last-modified etag]} (get-urls)]
+	      (let [headers {:If-Modified-Since last-modified
+			     :If-None-Match etag}]
+		(enqueue [url url headers]))))))
