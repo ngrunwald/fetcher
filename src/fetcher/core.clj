@@ -4,12 +4,12 @@
             [work.core :as work]
             [work.cache :as cache]
             [clojure.contrib.logging :as log])
-  (:use fetcher.handler))
+  (:use fetcher.handler
+        [plumbing.core :only [with-log]]))
 
 (defn status-check
   "Check if status code is 304, abort if so."
   [_ status]
-  (log/debug (format "Status check, status is %s" status))
   (if (= 304 (:code status))
     [status :abort]
     [status :continue]))
@@ -42,8 +42,7 @@
                           :completed (dispatch-generator k u put-done)
                           :error (fn [_ t] (log/error (format "Error processing request for %s." k) t))})
         req (async-req/prepare-request :get u  :headers headers)                                 
-        resp (apply async-req/execute-request req (apply concat callbacks))]   
-    (log/debug (format "Fetching %s -> %s." k u))
+        resp (apply async-req/execute-request req (apply concat callbacks))]
     resp))
 
 (defn fetch-pool
