@@ -20,6 +20,7 @@
   from a given url-info map."
   [k url-info]
   (let [url (url-info :url)
+        ;; TODO: place header creator in a function that can be reused
         headers {:If-Modified-Since (url-info :last-modified)
                  :If-None-Match (url-info :etag)}]
 
