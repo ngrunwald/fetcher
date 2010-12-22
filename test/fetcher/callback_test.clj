@@ -139,8 +139,8 @@
   (let [fetch-pool (mk-test-feed-fetcher)
         feed-key "http://daringfireball.net/index.xml"
         feed (feeds feed-key)]
-    (workq/offer poll-req-q [feed-key
-			     feed-key])
+    (workq/offer poll-req-q {:key feed-key
+                             :url feed-key})
     (wait-until #(= 1 (count poll-resp-q)) 30)
     (let [{k :key b :body} (workq/poll poll-resp-q)]
       (is (= 0 (count poll-resp-q)))

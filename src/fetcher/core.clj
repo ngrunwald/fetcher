@@ -83,7 +83,7 @@
   "Fetch a feed for updates.  Responses are handled asynchronously by the provided callback.
 
   The callback should accept five arguments: k, u, response code, headers, and body."
-  [[k u & [headers]] put-done]
+  [{k :key u :url headers :headers} put-done]
   (let [callbacks (merge async-req/*default-callbacks*
                          {:status status-check
                           :completed (with-url k u put-done)
