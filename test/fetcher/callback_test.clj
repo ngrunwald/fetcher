@@ -141,8 +141,7 @@
         feed (feeds feed-key)]
     (workq/offer poll-req-q [feed-key
 			     feed-key])
-    ((with-timeout 30
-      (wait-until #(= 1 (count poll-resp-q)))) )
+    (wait-until #(= 1 (count poll-resp-q)) 30)
     (let [{k :key b :body} (workq/poll poll-resp-q)]
       (is (= 0 (count poll-resp-q)))
       (is (= feed-key k))
