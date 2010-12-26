@@ -37,7 +37,7 @@
   (assoc resp :key u))
 
 (defn redirect
-"dispatch table with redirect policy."
+"dispatch table with redirect polcy."
 [update-fetch out & [update move]]
   (if move
     (table 
@@ -83,7 +83,7 @@
   "Fetch a feed for updates.  Responses are handled asynchronously by the provided callback.
 
   The callback should accept five arguments: k, u, response code, headers, and body."
-  [[k u & [headers]] put-done]
+  [{k :key u :url headers :headers} put-done]
   (let [callbacks (merge async-req/*default-callbacks*
                          {:status status-check
                           :completed (with-url k u put-done)
@@ -99,8 +99,10 @@
   ([get-urls enqueue]
      (fn [] (doseq [{:keys [url last-modified etag]} (get-urls)]
 	      (let [headers {:If-Modified-Since last-modified
-			     :If-None-Match etag}]
-		(enqueue [url url headers]))))))
+                             :If-None-Match etag}]
+                (enqueue {:key url
+                          :url url
+                          :headers headers}))))))
 
 (defn get-scheduled-fetches
   "Schedule work to fetch with a frequency given in seconds."
@@ -108,4 +110,6 @@
      (for [{:keys [url last-modified etag]} urls
 	    :let [headers {:If-Modified-Since last-modified
 			   :If-None-Match etag}]]
-       [url url headers])))
+       {:key url
+	:url url
+	:headers headers})))

@@ -32,6 +32,6 @@
   (let [m (promise)
 	callback (fn [{b :body}]
 		     (deliver m b))]
-    (fetch ["key"  "http://dl.dropbox.com/u/1205228/test.txt"] callback)
+    (fetch {:key "key" :url "http://dl.dropbox.com/u/1205228/test.txt"} callback)
     (is (= @m "This is a test.\n"))))
 
