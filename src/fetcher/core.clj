@@ -101,3 +101,11 @@
 	      (let [headers {:If-Modified-Since last-modified
 			     :If-None-Match etag}]
 		(enqueue [url url headers]))))))
+
+(defn get-scheduled-fetches
+  "Schedule work to fetch with a frequency given in seconds."
+  ([urls]
+     (for [{:keys [url last-modified etag]} urls
+	    :let [headers {:If-Modified-Since last-modified
+			   :If-None-Match etag}]]
+       [url url headers])))
