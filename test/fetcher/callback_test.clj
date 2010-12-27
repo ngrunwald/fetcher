@@ -60,7 +60,7 @@
       (is (past-5-min? (time-coerce/from-string (:last-fetched feed)))))))
 
 (deftest perm-redirect-handler
-  (let [move-feed (mk-move-feed get-feed set-feed rm-feed)
+  (let [move-feed (mk-move-feed get-feed set-feed)
         update-feed (mk-update-feed get-feed set-feed)
         update-fetch (mk-update-fetch get-feed set-feed)
         put-redirect #(workq/offer poll-req-q %)
@@ -100,7 +100,7 @@
 (deftest same-old-and-new-perm-redirect
   (let [feed-key "http://reflective"
         feed-url "http://reflective"
-        move-feed (mk-move-feed get-feed set-feed rm-feed)
+        move-feed (mk-move-feed get-feed set-feed)
         update-feed (mk-update-feed get-feed set-feed)
         update-fetch (mk-update-fetch get-feed set-feed)
         put-redirect #(workq/offer poll-req-q %)
@@ -129,7 +129,7 @@
 	      (mk-update-feed get-feed set-feed)
 	      #(workq/offer poll-req-q %)
 	      (mk-update-fetch get-feed set-feed)
-	      (mk-move-feed get-feed set-feed rm-feed)))
+	      (mk-move-feed get-feed set-feed)))
     :exec work/async}))
 
 (deftest feed-fetch

@@ -37,7 +37,7 @@
       (put-item k (assoc (get-item k) :body b))))
 
 (defn mk-move-feed
-  [get-feed set-feed rm-feed]
+  [get-feed set-feed]
   (fn [{k :key h :headers}]
     (let [feed (get-feed k)
           new-url (:location h)]
