@@ -64,15 +64,12 @@
         update-feed (mk-update-feed get-feed set-feed)
         update-fetch (mk-update-fetch get-feed set-feed)
         put-redirect #(workq/offer poll-req-q %)
-        handler (:301 (fetch/redirect update-feed put-redirect
-                                             update-fetch
-					     move-feed))
+        handler (:301 (fetch/redirect update-feed put-redirect update-fetch move-feed))
         feed-key "http://feedproxy.google.com/TechCrunch"
-        new-key "http://feeds.feedburner.com/TechCrunch"
         resp-headers (:headers perm-redirect-resp)]
     (handler perm-redirect-resp)
-    (let [feed (get-feed new-key)]
-      (is (= new-key (:url feed)))
+    (let [feed (get-feed feed-key)]
+      (is (= "http://feeds.feedburner.com/TechCrunch" (:url feed)))
       ;; Need to see why timestamp string isn't be parsed right
       ;;(is (past-5-min? (time-coerce/from-string (:last-modified feed))))
       ;;(is (past-5-min? (time-coerce/from-string (:etag feed))))

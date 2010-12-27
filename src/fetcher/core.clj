@@ -32,20 +32,16 @@
   (let [url (wm.urls/expand-relative-url u (:location h))]
     (assoc resp :url url)))
 
-(defn url-as-key
-  [{u :url :as resp}]
-  (assoc resp :key u))
-
 (defn redirect
 "dispatch table with redirect polcy."
 [update-fetch out & [update move]]
   (if move
     (table 
      :301 [move
-	       (with-pre #(-> % use-redirect url-as-key)
+	       (with-pre use-redirect
              update-fetch
              update)
-           (with-pre #(-> % use-redirect url-as-key)
+           (with-pre use-redirect
              out)]
 	 [:300 :302 :307]
 	 [update-fetch

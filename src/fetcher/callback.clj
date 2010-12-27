@@ -41,7 +41,5 @@
   (fn [{k :key h :headers}]
     (let [feed (get-feed k)
           new-url (:location h)]
-      (when (not= new-url k)
-        (set-feed new-url (assoc feed :url new-url
-                                 :key new-url))
-        (rm-feed k)))))
+      (set-feed k (assoc feed :url new-url
+                         :key new-url)))))
