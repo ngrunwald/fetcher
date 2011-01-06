@@ -10,6 +10,13 @@
                  [crane "1.0-SNAPSHOT"]
                  [clj-time "0.2.0-SNAPSHOT"]]
   :dev-dependencies [[swank-clojure "1.2.1"]
-                     [crane/lein-crane "0.0.1-SNAPSHOT"]]
+                     [crane/lein-crane "0.0.1-SNAPSHOT"]
+                     [robert/hooke "1.1.0"]]
   :repositories {"java.net" "http://download.java.net/maven/2"
-                 "clojars" "http://clojars.org/repo"})
+                 "clojars" "http://clojars.org/repo"}
+  :test-selectors {:default (fn [v] (not (or (:integration v)
+                                             (:system v))))
+                   :integration :integration
+                   :system :system
+                   :performance :performance
+                   :all (fn [_] true)})
