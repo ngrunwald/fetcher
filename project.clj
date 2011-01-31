@@ -13,7 +13,9 @@
                      [crane/lein-crane "0.0.1-SNAPSHOT"]
                      [robert/hooke "1.1.0"]]
   :repositories {"java.net" "http://download.java.net/maven/2"
-                 "clojars" "http://clojars.org/repo"}
+                 "clojars" "http://clojars.org/repo"
+                 "snapshots" "http://mvn.getwoven.com/repos/woven-public-snapshots"
+                 "releases" "http://mvn.getwoven.com/repos/woven-public-releases"}
   :test-selectors {:default (fn [v] (not (or (:integration v)
                                              (:system v))))
                    :integration :integration
