@@ -1,22 +1,16 @@
-(defproject fetcher "1.0.3-SNAPSHOT"
-  :description "work based fetcher service."
+(defproject woven/clj-http "0.1.2-chunked-SNAPSHOT"
+  :description "A Clojure HTTP library wrapping the Apache HttpComponents client."
   :dependencies [[org.clojure/clojure "1.2.0"]
                  [org.clojure/clojure-contrib "1.2.0"]
-                 [http.async.client "0.2.2-SNAPSHOT"]
-                 [javax.mail/mail "1.4.3"]
-                 [work "0.1.4-SNAPSHOT"]
-                 [webmine "0.1.3-SNAPSHOT"]
+                 [org.apache.httpcomponents/httpclient "4.1"]
+                 [org.apache.httpcomponents/httpcore "4.1"]
                  [clj-sys/plumbing "0.1.3-SNAPSHOT"]
-                 [crane "1.0-SNAPSHOT"]
-                 [clj-time "0.2.0-SNAPSHOT"]]
-  :dev-dependencies [[swank-clojure "1.2.1"]
-                     [crane/lein-crane "0.0.1-SNAPSHOT"]
-                     [robert/hooke "1.1.0"]]
-  :repositories {"java.net" "http://download.java.net/maven/2"
-                 "clojars" "http://clojars.org/repo"}
-  :test-selectors {:default (fn [v] (not (or (:integration v)
-                                             (:system v))))
-                   :integration :integration
-                   :system :system
-                   :performance :performance
-                   :all (fn [_] true)})
+                 [work "0.2.3-SNAPSHOT"]
+                 [commons-codec "1.4"]
+                 [commons-io "1.4"]]
+  :dev-dependencies [[swank-clojure "1.2.0"]
+                     [ring/ring-jetty-adapter "0.3.5"]
+                     [ring/ring-devel "0.3.5"]]
+  :repositories {"snapshots" "http://mvn.getwoven.com/repos/woven-public-snapshots"
+                 "releases" "http://mvn.getwoven.com/repos/woven-public-releases"})
+
