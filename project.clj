@@ -9,16 +9,8 @@
                  [clj-sys/plumbing "0.1.3-SNAPSHOT"]
                  [crane "1.0-SNAPSHOT"]
                  [clj-time "0.2.0-SNAPSHOT"]]
-  :dev-dependencies [[swank-clojure "1.2.1"]
-                     [crane/lein-crane "0.0.1-SNAPSHOT"]
-                     [robert/hooke "1.1.0"]]
+  :dev-dependencies [[swank-clojure "1.2.1"]]
   :repositories {"java.net" "http://download.java.net/maven/2"
                  "clojars" "http://clojars.org/repo"
                  "snapshots" "http://mvn.getwoven.com/repos/woven-public-snapshots"
-                 "releases" "http://mvn.getwoven.com/repos/woven-public-releases"}
-  :test-selectors {:default (fn [v] (not (or (:integration v)
-                                             (:system v))))
-                   :integration :integration
-                   :system :system
-                   :performance :performance
-                   :all (fn [_] true)})
+                 "releases" "http://mvn.getwoven.com/repos/woven-public-releases"})
