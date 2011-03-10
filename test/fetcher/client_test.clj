@@ -1,5 +1,8 @@
 (ns fetcher.client-test
-  (:use clojure.test)
+  (:use clojure.test
+	ring.adapter.jetty
+	ring.middleware.reload
+	fetcher.core-test)
   (:use [plumbing.streams :only [test-stream]])
   (:require [fetcher.client :as client]
 	    [fetcher.util :as util]
@@ -7,17 +10,11 @@
   (:import (java.util Arrays)
 	   (java.util.concurrent.atomic AtomicInteger)))
 
-(def base-req
-     {:scheme "http"
-      :server-name "localhost"
-      :server-port 8080})
-
 (deftest rountrip
   (let [resp (client/request (merge base-req {:uri "/get" :method :get}))]
     (is (= 200 (:status resp)))
     (is (= "close" (get-in resp [:headers "connection"])))
     (is (= "get" (:body resp)))))
-
 
 (defn is-passed [middleware req]
   (let [client (middleware identity)]
@@ -26,7 +23,6 @@
 (defn is-applied [middleware req-in req-out]
   (let [client (middleware identity)]
     (is (= req-out (client req-in)))))
-
 
 (deftest redirect-on-get
   (let [client (fn [req]
@@ -185,7 +181,6 @@
   (is-passed client/wrap-basic-auth
 	     {:uri "/foo"}))
 
-
 (deftest apply-on-method
   (let [m-client (client/wrap-method identity)
         echo (m-client {:key :val :method :post})]
@@ -224,7 +219,7 @@
 	resp (o-client {:chunked? true})]
     (is (= ["a" "foo"] (:body resp)))))
 
-(deftest chunked-request-stress-test
+#_(deftest chunked-request-stress-test
   (let [client (fn [req]
 		 {:body (test-stream (.getBytes "3\r\nfoo\r\n")
 				     10
@@ -233,3 +228,36 @@
 	o-client (client/wrap-output-coercion client)
 	resp (o-client {:chunked? true})]
     (is (= 10 (count (:body resp))))))
+
+(deftest strip-bad-punc-test
+  (is (= "utf-8"
+	 (client/strip-punc "utf-8;"))))
+
+(deftest charset-in-body
+  (let [body "<html>
+<head>
+<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"/>
+<meta name=\"author\" content=\"I Wayan Saryada\"/>
+</head></html>"]
+    (is (= "utf-8" (client/charset body)))))
+
+(deftest charset-test
+  (is (= "windows-1250"
+         (client/charset "
+<html><head>
+<meta http-equiv=\"Content-Type\" content=\"text/html; charset=windows-1250\"/>
+<meta http-equiv=\"cache-control\" content=\"no-cache\"/>
+<meta name=\"robots\" content=\"all\"/>
+<title>Zemřel Pavel Vondruška, muzikant a jeden z 'Cimrmanů' - www.lidovky.cz</title>
+</head><body></body></html>"))))
+
+;;TODO: deal with this - the userlying sax parser for clojure breaks on the below html but the parser in webime.parser works fine.
+#_(deftest charset-test
+  (is (= "windows-1250"
+         (charset (dom "<!DOCTYPE html PUBLIC \"-//Lidovky//DTD HTML 4//EN\" \"http://g.lidovky.cz/dtd/n3_uni.dtd\">
+<html><head>
+<meta http-equiv=\"Content-Type\" content=\"text/html; charset=windows-1250\">
+<meta http-equiv=\"cache-control\" content=\"no-cache\">
+<meta name=\"robots\" content=\"all\">
+<title>Zemřel Pavel Vondruška, muzikant a jeden z 'Cimrmanů' - www.lidovky.cz</title>
+</head><body></body></html>")))))

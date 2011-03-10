@@ -1,11 +1,16 @@
 (ns fetcher.client
   "Batteries-included HTTP client."
+  (:use [clojure.xml :only [parse]])
   (:require [clojure.contrib.string :as str])
-  (:require [fetcher.core :as core])
+  (:require [fetcher.core :as core]
+            [clojure.zip :as zip])
   (:require [fetcher.util :as util])
+  (:require [clojure.contrib.zip-filter.xml :as xml-zip])
   (:import (java.net URL)
 	   (org.apache.commons.io IOUtils))
-  (:refer-clojure :exclude (get)))
+  (:refer-clojure :exclude (get))
+  (:use [plumbing.core :only [-?>]]
+	[clojure.string :only [split trim]]))
 
 (defn if-pos [v]
   (if (and v (pos? v)) v))
@@ -231,6 +236,7 @@
   request
   (wrap-request #'core/request))
 
+
 (defn get
   "Like #'request, but sets the :method and :url as appropriate."
   [url & [req]]
@@ -255,3 +261,67 @@
   "Like #'request, but sets the :method and :url as appropriate."
   [url & [req]]
   (request (merge req {:method :delete :url url})))
+
+(defn strip-punc [s]
+  (let [strip
+	(some identity (map #(.endsWith s %)
+			    [";" ":" "." ","]))]
+    (if strip (.substring s 0 (- (.length s) 1)))))
+
+(defn xml-root [body]
+  (-> body
+      (.getBytes "UTF-8")
+      java.io.ByteArrayInputStream.
+      parse
+      zip/xml-zip))
+
+(defn charset
+  "Get charset from meta tag."
+  [body]
+  (let [root (xml-root body)
+	meta (xml-zip/xml1-> root
+				:head
+				:meta)]
+    (if-let [content (first (filter #(= "Content-Type"
+					(:http-equiv (:attrs %)))
+				    meta))]
+      (->> content
+	   :attrs
+	     :content
+	     (str/split #"=")
+	     last
+	     str/trim))))
+
+;; (defn wrap-html-body
+;;   [client]
+;;   (fn [req]
+;;     (let [{:keys [headers body] :as resp} (client req)]
+;;       (if (.startsWith (headers "content-type") "text/html")
+;;         (let [b (IOUtils/toByteArray body)
+;;               charset (or (-?> (headers "content-type")
+;;                                (split #"=")
+;;                                second
+;; 			       strip-punc
+;;                                trim)
+;;                           (charset (String. b "UTF-8"))
+;;                           "UTF-8")]
+;;           (assoc resp :body (String. b charset)))
+;;         resp))))
+
+;; (defn wrap-request
+;;   [request]
+;;   (-> request
+;;       (clj-http.client/wrap-client (clj-http/pooled-http-client))
+;;       clj-http.client/wrap-redirects
+;;       clj-http.client/wrap-exceptions
+;;       clj-http.client/wrap-decompression
+;;       clj-http.client/wrap-query-params
+;;       clj-http.client/wrap-basic-auth
+;;       clj-http.client/wrap-accept
+;;       clj-http.client/wrap-accept-encoding
+;;       clj-http.client/wrap-content-type
+;;       clj-http.client/wrap-method
+;;       clj-http.client/wrap-url
+;;       wrap-html-body))
+
+;; (def request (wrap-request clj-http/request))

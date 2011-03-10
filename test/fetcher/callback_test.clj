@@ -115,36 +115,6 @@
 	(is (= feed-url (-> (get-feed feed-key) :url)))
 	(is (= 1 (.size poll-req-q)))))
 
-(defn mk-test-feed-fetcher
-  []
-  (work/queue-work
-   {:f fetch/fetch
-    :in #(workq/poll poll-req-q)
-    :out (dispatch fetch/on-response
-	     (fetch/response-table
-	      (mk-update-fetch get-feed set-feed)
-	      (mk-update-feed get-feed set-feed)
-	      #(workq/offer poll-resp-q %))
-	     (fetch/redirect
-	      (mk-update-feed get-feed set-feed)
-	      #(workq/offer poll-req-q %)
-	      (mk-update-fetch get-feed set-feed)
-	      (mk-move-feed get-feed set-feed)))
-    :exec work/async}))
-
-(deftest feed-fetch
-  (let [fetch-pool (mk-test-feed-fetcher)
-        feed-key "http://daringfireball.net/index.xml"
-        feed (feeds feed-key)]
-    (workq/offer poll-req-q {:key feed-key
-                             :url feed-key})
-    (wait-until #(= 1 (count poll-resp-q)) 30)
-    (let [{k :key b :body} (workq/poll poll-resp-q)]
-      (is (= 0 (count poll-resp-q)))
-      (is (= feed-key k))
-      (is (not (nil? b))))
-    (.shutdown fetch-pool)))
-
 ;;; Test data
 (def feeds {"http://feedproxy.google.com/TechCrunch" {:url "http://feedproxy.google.com/TechCrunch"}
             "http://daringfireball.net/index.xml" {:url "http://daringfireball.net/index.xml"}})
