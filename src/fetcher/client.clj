@@ -147,32 +147,6 @@
     (update-in req [content-type]
 	       content-type-value)))
 
-(defn request
-  ([method url] (request (core/pooled-http-client) method url))
-  ([client method url]
-     (let [req (-> (if (map? url) url (parse-url url))
-		    (merge {:request-method method
-			    :accept-encoding gzip})
-		    content-type
-		    basic-auth
-		    accept-encoding
-		    accept
-		    query-params
-		    basic-auth
-		    input-coercion)
-	    resp (->>
-		  (core/request client req)
-		  (redirect client req)
-		  (output-coercion req)
-		  decompress)]
-	resp)))
-
-(defn strip-punc [s]
-  (let [strip
-	(some identity (map #(.endsWith s %)
-			    [";" ":" "." ","]))]
-    (if strip (.substring s 0 (- (.length s) 1)))))
-
 (defn xml-root [body]
   (-> body
       (.getBytes "UTF-8")
@@ -197,36 +171,45 @@
 	     last
 	     str/trim))))
 
-;; (defn wrap-html-body
-;;   [client]
-;;   (fn [req]
-;;     (let [{:keys [headers body] :as resp} (client req)]
-;;       (if (.startsWith (headers "content-type") "text/html")
-;;         (let [b (IOUtils/toByteArray body)
-;;               charset (or (-?> (headers "content-type")
-;;                                (split #"=")
-;;                                second
-;; 			       strip-punc
-;;                                trim)
-;;                           (charset (String. b "UTF-8"))
-;;                           "UTF-8")]
-;;           (assoc resp :body (String. b charset)))
-;;         resp))))
+(defn strip-punc [s]
+  (let [strip
+	(some identity (map #(.endsWith s %)
+			    [";" ":" "." ","]))]
+    (if strip (.substring s 0 (- (.length s) 1)))))
 
-;; (defn wrap-request
-;;   [request]
-;;   (-> request
-;;       (clj-http.client/wrap-client (clj-http/pooled-http-client))
-;;       clj-http.client/wrap-redirects
-;;       clj-http.client/wrap-exceptions
-;;       clj-http.client/wrap-decompression
-;;       clj-http.client/wrap-query-params
-;;       clj-http.client/wrap-basic-auth
-;;       clj-http.client/wrap-accept
-;;       clj-http.client/wrap-accept-encoding
-;;       clj-http.client/wrap-content-type
-;;       clj-http.client/wrap-method
-;;       clj-http.client/wrap-url
-;;       wrap-html-body))
+(defn charset-body
+ [resp]
+  (let [{:keys [headers body]} resp]
+    (if (.startsWith (headers "content-type") "text/html")
+      (let [b (IOUtils/toByteArray body)
+	    charset (or (-?> (headers "content-type")
+			     (split #"=")
+			     second
+			     strip-punc
+			     trim)
+			(charset (String. b "UTF-8"))
+			"UTF-8")]
+	(assoc resp :body (String. b charset)))
+      resp)))
 
-;; (def request (wrap-request clj-http/request))
+(defn request
+  ([method url] (request (core/pooled-http-client) method url))
+  ([client method url]
+     (let [req (-> (if (map? url) url (parse-url url))
+		    (merge {:request-method method
+			    :accept-encoding gzip})
+		    content-type
+		    basic-auth
+		    accept-encoding
+		    accept
+		    query-params
+		    basic-auth
+		    input-coercion)
+	    resp (->>
+		  (core/request client req)
+		  charset-body
+		  (redirect client req)
+		  (output-coercion req)
+		  decompress
+		  )]
+	resp)))
