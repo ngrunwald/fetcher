@@ -47,29 +47,29 @@
     (assoc resp :url url)))
 
 (defn redirect
-"dispatch table with redirect polcy."
-[update-fetch out & [update move]]
+  "dispatch table with redirect polcy."
+  [update-fetch out & [update move]]
   (if move
     (table
      :301 [move
-(with-pre use-redirect
+           (with-pre use-redirect
              update-fetch
              update)
            (with-pre use-redirect
              out)]
-[:300 :302 :307]
-[update-fetch
-(with-pre use-redirect out)])
+     [:300 :302 :307]
+     [update-fetch
+      (with-pre use-redirect out)])
     (table
-[:300 :301 :302 :307]
-[update-fetch
-(with-pre use-redirect out)])))
+     [:300 :301 :302 :307]
+     [update-fetch
+      (with-pre use-redirect out)])))
 
 (defn response-table
   [update-fetch update put-ok]
   (table :200 [update-fetch update put-ok]
-[:400 :304 :401 :410 :404 :408 :500 :503]
-update-fetch))
+         [:400 :304 :401 :410 :404 :408 :500 :503]
+         update-fetch))
 
 (defn with-url
   "wraps a callback in a key and url.
@@ -83,10 +83,10 @@ callback takes key, url, status code, hearders and body."
           body (when (ok? code)
                  (c/string state))]
       (callback {:key k
-:url u
-:status code
-:headers headers
-:body body})
+                 :url u
+                 :status code
+                 :headers headers
+                 :body body})
       [true :continue])))
 
 (defn fetch
@@ -98,17 +98,17 @@ The callback should accept five arguments: k, u, response code, headers, and bod
                          {:status status-check
                           :completed (with-url k u put-done)
                           :error (fn [_ t]
-(log/error
-(format "Error processing request for %s."
-k) t))})
+                                   (log/error
+                                    (format "Error processing request for %s."
+                                            k) t))})
         req (async-req/prepare-request :get u :headers headers)]
     (apply async-req/execute-request req (apply concat callbacks))))
-    
+
 (defn schedule-fetches
   "Schedule work to fetch with a frequency given in seconds."
   ([get-urls enqueue]
      (fn [] (doseq [{:keys [url last-modified etag]} (get-urls)]
-(let [headers {:If-Modified-Since last-modified
+              (let [headers {:If-Modified-Since last-modified
                              :If-None-Match etag}]
                 (enqueue {:key url
                           :url url
@@ -118,17 +118,28 @@ k) t))})
   "Schedule work to fetch with a frequency given in seconds."
   ([urls]
      (for [{:keys [url last-modified etag]} urls
-:let [headers {:If-Modified-Since last-modified
-:If-None-Match etag}]]
+           :let [headers {:If-Modified-Since last-modified
+                          :If-None-Match etag}]]
        {:key url
-:url url
-:headers headers})))
+        :url url
+        :headers headers})))
 
 (defn- parse-headers [^HttpResponse http-resp]
   (into {} (map (fn [^Header h] [(.toLowerCase (.getName h)) (.getValue h)])
                 (iterator-seq (.headerIterator http-resp)))))
 
+(defn config-client
+  [c]
+  (doto (.getParams c)
+    (.setParameter ClientPNames/COOKIE_POLICY CookiePolicy/BROWSER_COMPATIBILITY)
+    (.setParameter ClientPNames/HANDLE_REDIRECTS true)
+    (.setParameter ClientPNames/MAX_REDIRECTS 10)
+    (.setParameter ClientPNames/ALLOW_CIRCULAR_REDIRECTS true)
+    (.setParameter ClientPNames/REJECT_RELATIVE_REDIRECT false))
+  c)
+
 (defn pooled-http-client
+  "A threadsafe, single client using connection pools to various hosts."
   ([] (pooled-http-client {:ttl 120
                            :max-total-conns 200
                            :max-per-route 10}))
@@ -141,16 +152,16 @@ k) t))})
            mgr (doto (ThreadSafeClientConnManager. schemes (long ttl) TimeUnit/SECONDS)
                  (.setMaxTotal max-total-conns)
                  (.setDefaultMaxPerRoute max-per-route))]
-       (DefaultHttpClient. mgr))))
+       (config-client (DefaultHttpClient. mgr)))))
 
 (defn basic-http-client
   []
-  (let [http-client (DefaultHttpClient.)]
-    (try
-      (-> http-client
-        (.getParams)
-        (.setParameter ClientPNames/COOKIE_POLICY CookiePolicy/BROWSER_COMPATIBILITY)))
-    http-client))
+  (config-client (DefaultHttpClient.)))
+
+(defn simple-pool
+  "A client pool that returns the same client."
+  [client]
+  (fn [] client))
 
 (defn request
   "Executes the HTTP request corresponding to the given Ring request map and
