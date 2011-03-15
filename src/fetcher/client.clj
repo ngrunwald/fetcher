@@ -6,22 +6,10 @@
             [clojure.zip :as zip])
   (:require [fetcher.util :as util])
   (:require [clojure.contrib.zip-filter.xml :as xml-zip])
-  (:import (java.net URL)
-	   (org.apache.commons.io IOUtils))
+  (:import (org.apache.commons.io IOUtils))
   (:refer-clojure :exclude (get))
   (:use [plumbing.core :only [-?>]]
-	[clojure.string :only [split trim]]))
-
-(defn if-pos [v]
-  (if (and v (pos? v)) v))
-
-(defn parse-url [url]
-  (let [url-parsed (URL. url)]
-    {:scheme (.getProtocol url-parsed)
-     :server-name (.getHost url-parsed)
-     :server-port (if-pos (.getPort url-parsed))
-     :uri (.getPath url-parsed)
-     :query-string (.getQuery url-parsed)}))
+        [clojure.string :only [split trim]]))
 
 (defn ensure-proper-url
   [loc default-protocol default-host-port]
@@ -47,7 +35,7 @@
              (get-in resp [:headers "location"])
              (:scheme req)
              (host-and-port req))]
-    (merge req (parse-url url))))
+    (merge req (core/parse-url url))))
 
 (defn redirect [client req resp]
   (let [{:keys [request-method]} req
@@ -145,14 +133,15 @@
 
 (defn basic-auth [req]
   (if-let [[user password] (:basic-auth req)]
-    (-> req (dissoc :basic-auth)
-	(assoc-in [:headers "Authorization"]
-		  (str "Basic "
-       (util/base64-encode (util/utf8-bytes (str user ":" password)))))))
-  req)
+    (-> req
+        (dissoc :basic-auth)
+        (assoc-in [:headers "Authorization"]
+                  (str "Basic "
+                       (util/base64-encode (util/utf8-bytes (str user ":" password))))))
+    req))
 
 (defn content-type-value [type]
-	       (if (keyword? type)
+  (if (keyword? type)
     (str "application/" (name type))
     type))
 
@@ -165,16 +154,16 @@
      req))
 
 (defn content-type [req]
-  (if (not (:content-type req)) req
-    (update-in req [content-type]
-	       content-type-value)))
+  (if (not (:content-type req))
+    req
+    (update-in req [:content-type] content-type-value)))
 
 (defn request
   ([method url] (request #(core/basic-http-client)
                          method
                          url))
   ([client-pool method url]
-     (let [req (-> (if (map? url) url (parse-url url))
+     (let [req (-> (if (map? url) url (core/parse-url url))
                    (merge {:request-method method
                            :accept-encoding gzip})
                    content-type
