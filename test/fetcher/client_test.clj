@@ -235,6 +235,25 @@
 <title>Zemřel Pavel Vondruška, muzikant a jeden z 'Cimrmanů' - www.lidovky.cz</title>
 </head><body></body></html>"}))))
 
+(deftest charset-meta-charset
+  (is (= "EUC-JP"
+	 (client/charset {:body
+			  "<html><head><META http-equiv=\"Content-Type\" content=\"text/html; charset=EUC-JP\"></head><body></body></html>"}))))
+
+(deftest html5-charset-test
+  (is (= "fake-charset"
+	 ( client/charset
+	   {:body"<!doctype html>
+<html>
+ <head>
+   <meta charset=\"fake-charset\">
+   <title>Example document</title>
+ </head>
+ <body>
+   <p>Example paragraph</p>
+ </body>
+</html>"}))))
+
 (deftest charset-test
   (is (= "windows-1250"
          (client/charset {:body "<!DOCTYPE html PUBLIC \"-//Lidovky//DTD HTML 4//EN\" \"http://g.lidovky.cz/dtd/n3_uni.dtd\">

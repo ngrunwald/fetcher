@@ -165,27 +165,42 @@
     (if (not strip) s
 	(.substring s 0 (- (.length s) 1)))))
 
-(defn charset
-  "Get charset from meta tag."
-  [{:keys [headers body]}]
-  (or (-?> (headers "content-type")
+(defn charset-headers [headers]
+  (-?> (headers "content-type")
 	   (split #"=")
 	   second
 	   strip-punc
-	   trim)
+	   trim))
+
+(defn charset-http-equiv [meta]
+  (if-let [content (first (filter #(= "Content-Type"
+				      (:http-equiv (attr-map %)))
+				  meta))]
+    (->> content
+	 attr-map
+	 :content
+	 (str/split #"=")
+	 last
+	 str/trim)))
+
+(defn charset-html5 [meta]
+  (if-let [content (first (filter #(:charset (attr-map %))
+				  meta))]
+    (->> content
+	 attr-map
+	 :charset
+	 str/trim)))
+
+(defn charset
+  "Get charset from meta tag."
+  [{:keys [headers body]}]
+  (or (charset-headers headers)
       (let [root (dom body)
 	    meta (-> root
 		     head
 		     (elements "meta"))]
-	(if-let [content (first (filter #(= "Content-Type"
-					    (:http-equiv (attr-map %)))
-					meta))]
-	  (->> content
-	       attr-map
-	       :content
-	       (str/split #"=")
-	       last
-	       str/trim)))
+	(or (charset-http-equiv meta)
+	    (charset-html5 meta)))
       "UTF-8"))
 
 (defn request
