@@ -235,16 +235,15 @@
 <title>Zemřel Pavel Vondruška, muzikant a jeden z 'Cimrmanů' - www.lidovky.cz</title>
 </head><body></body></html>"}))))
 
-;; ;;TODO: deal with this - the userlying sax parser for clojure breaks on the below html but the parser in webime.parser works fine.
-;; #_(deftest charset-test
-;;   (is (= "windows-1250"
-;;          (charset (dom "<!DOCTYPE html PUBLIC \"-//Lidovky//DTD HTML 4//EN\" \"http://g.lidovky.cz/dtd/n3_uni.dtd\">
-;; <html><head>
-;; <meta http-equiv=\"Content-Type\" content=\"text/html; charset=windows-1250\">
-;; <meta http-equiv=\"cache-control\" content=\"no-cache\">
-;; <meta name=\"robots\" content=\"all\">
-;; <title>Zemřel Pavel Vondruška, muzikant a jeden z 'Cimrmanů' - www.lidovky.cz</title>
-;; </head><body></body></html>")))))
+(deftest charset-test
+  (is (= "windows-1250"
+         (client/charset {:body "<!DOCTYPE html PUBLIC \"-//Lidovky//DTD HTML 4//EN\" \"http://g.lidovky.cz/dtd/n3_uni.dtd\">
+<html><head>
+<meta http-equiv=\"Content-Type\" content=\"text/html; charset=windows-1250\">
+<meta http-equiv=\"cache-control\" content=\"no-cache\">
+<meta name=\"robots\" content=\"all\">
+<title>Zemřel Pavel Vondruška, muzikant a jeden z 'Cimrmanů' - www.lidovky.cz</title>
+</head><body></body></html>"}))))
 
 (deftest redirect-path-test
   (is (= [[:302 "http://localhost:8080/moved"]

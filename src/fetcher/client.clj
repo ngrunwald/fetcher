@@ -1,6 +1,6 @@
 (ns fetcher.client
   "Batteries-included HTTP client."
-  (:use [clojure.xml :only [parse]])
+  (:use [html-parse.parser :only [dom elements attr-map head]])
   (:require [clojure.contrib.string :as str])
   (:require [fetcher.core :as core]
             [clojure.zip :as zip])
@@ -57,18 +57,18 @@
   (let [when-done #(do (.close is))
 	r (-> is java.io.InputStreamReader. java.io.BufferedReader.)]
     (take-while identity
-      (repeatedly
-       #(let [line (.readLine r)]
-	  (if (or (nil? line)
-		  (.isEmpty line))
-	    (do (when-done) nil)
-	     (let [size (Integer/decode (str "0x" line))
-		   char-data (util/read-bytes r size)]	       
-	       (if (zero? size)
-		 (do (when-done) nil)
-		 (let [chunk (String. char-data 0 size)]
-		   (.readLine r) ;after chunk line terminator
-		   (-> (.getBytes chunk "UTF-8") java.io.ByteArrayInputStream.))))))))))
+		(repeatedly
+		 #(let [line (.readLine r)]
+		    (if (or (nil? line)
+			    (.isEmpty line))
+		      (do (when-done) nil)
+		      (let [size (Integer/decode (str "0x" line))
+			    char-data (util/read-bytes r size)]	       
+			(if (zero? size)
+			  (do (when-done) nil)
+			  (let [chunk (String. char-data 0 size)]
+			    (.readLine r) ;after chunk line terminator
+			    (-> (.getBytes chunk "UTF-8") java.io.ByteArrayInputStream.))))))))))
 
 (defn output-coercion [req resp]
   (let [{:keys [as,chunked?]
@@ -94,7 +94,7 @@
   [{:keys [body] :as req}]
   (if (string? body)
     (-> req (assoc :body (util/utf8-bytes body)
-			    :character-encoding "UTF-8"))
+		   :character-encoding "UTF-8"))
     req))
 
 (defn decompress
@@ -102,12 +102,12 @@
   (case (get-in resp [:headers "content-encoding"])
 	"gzip"
 	(update-in resp [:body]
-               (fn [^java.io.InputStream is]
-                 (java.util.zip.GZIPInputStream. is)))
+		   (fn [^java.io.InputStream is]
+		     (java.util.zip.GZIPInputStream. is)))
 	"deflate"
 	(update-in resp [:body]
-               (fn [^java.io.InputStream is]
-                 (java.util.zip.InflaterInputStream. is)))
+		   (fn [^java.io.InputStream is]
+		     (java.util.zip.InflaterInputStream. is)))
 	resp))
 
 (def gzip ["gzip" "deflate"])
@@ -116,20 +116,20 @@
   [{:keys [accept-encoding] :as req}]
   (if accept-encoding
     (-> req (dissoc :accept-encoding)
-		 (assoc-in [:headers "Accept-Encoding"]
-			   (str/join ", " (map name accept-encoding))))
+	(assoc-in [:headers "Accept-Encoding"]
+		  (str/join ", " (map name accept-encoding))))
     req))
 
 (defn query-params
- [{:keys [query-params] :as req}]
+  [{:keys [query-params] :as req}]
   (if query-params
-     (-> req (dissoc :query-params)
-		 (assoc :query-string
-		   (str/join "&"
-    (map (fn [[k v]] (str (util/url-encode (name k)) "="
-                          (util/url-encode (str v))))
-         query-params))))
-     req))
+    (-> req (dissoc :query-params)
+	(assoc :query-string
+	  (str/join "&"
+		    (map (fn [[k v]] (str (util/url-encode (name k)) "="
+					  (util/url-encode (str v))))
+			 query-params))))
+    req))
 
 (defn basic-auth [req]
   (if-let [[user password] (:basic-auth req)]
@@ -146,24 +146,17 @@
     type))
 
 (defn accept
- [{:keys [accept] :as req}]
+  [{:keys [accept] :as req}]
   (if accept
-     (-> req (dissoc :accept)
-		 (assoc-in [:headers "Accept"]
-			   (content-type-value accept)))
-     req))
+    (-> req (dissoc :accept)
+	(assoc-in [:headers "Accept"]
+		  (content-type-value accept)))
+    req))
 
 (defn content-type [req]
   (if (not (:content-type req))
     req
     (update-in req [:content-type] content-type-value)))
-
-(defn xml-root [body]
-  (-> body
-      (.getBytes "UTF-8")
-      java.io.ByteArrayInputStream.
-      parse
-      zip/xml-zip))
 
 (defn strip-punc [s]
   (let [strip
@@ -175,26 +168,25 @@
 (defn charset
   "Get charset from meta tag."
   [{:keys [headers body]}]
-  (let [b (IOUtils/toByteArray body)]
-    (or (-?> (headers "content-type")
-	     (split #"=")
-	     second
-	     strip-punc
-	     trim)
-	(let [root (xml-root (String. b "UTF-8"))
-	      meta (xml-zip/xml1-> root
-				   :head
-				   :meta)]
-	  (if-let [content (first (filter #(= "Content-Type"
-					      (:http-equiv (:attrs %)))
-					  meta))]
-	    (->> content
-		 :attrs
-		 :content
-		 (str/split #"=")
-		 last
-		 str/trim)))
-	"UTF-8")))
+  (or (-?> (headers "content-type")
+	   (split #"=")
+	   second
+	   strip-punc
+	   trim)
+      (let [root (dom body)
+	    meta (-> root
+		     head
+		     (elements "meta"))]
+	(if-let [content (first (filter #(= "Content-Type"
+					    (:http-equiv (attr-map %)))
+					meta))]
+	  (->> content
+	       attr-map
+	       :content
+	       (str/split #"=")
+	       last
+	       str/trim)))
+      "UTF-8"))
 
 (defn request
   ([method url] (request #(core/basic-http-client)
@@ -213,6 +205,5 @@
                    input-coercion)
            resp (->> (core/request (client-pool) req)
                      decompress
-;;		     charset-body
                      (output-coercion req))]
        resp)))
