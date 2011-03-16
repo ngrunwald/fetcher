@@ -264,6 +264,15 @@
 <title>Zemřel Pavel Vondruška, muzikant a jeden z 'Cimrmanů' - www.lidovky.cz</title>
 </head><body></body></html>"}))))
 
+;;http://www.boston.com/sports/colleges/extras/colleges_blog/2011/03/harvard_wins_sh.html
+#_(deftest charset-prod-example-breakage
+  (is (= "ISO-8859-1"
+	 (client/charset
+	  {:body 
+	   " <html lang=\"en\">
+  <head>
+<meta http-equiv=\"Content-Type\" content=\"text/html; charset=\"ISO-8859-1\">"}))))
+
 (deftest redirect-path-test
   (is (= [[:302 "http://localhost:8080/moved"]
           [:301 "http://localhost:8080/get"]]
