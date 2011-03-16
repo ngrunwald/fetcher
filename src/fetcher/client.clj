@@ -6,22 +6,10 @@
             [clojure.zip :as zip])
   (:require [fetcher.util :as util])
   (:require [clojure.contrib.zip-filter.xml :as xml-zip])
-  (:import (java.net URL)
-	   (org.apache.commons.io IOUtils))
+  (:import (org.apache.commons.io IOUtils))
   (:refer-clojure :exclude (get))
   (:use [plumbing.core :only [-?>]]
-	[clojure.string :only [split trim]]))
-
-(defn if-pos [v]
-  (if (and v (pos? v)) v))
-
-(defn parse-url [url]
-  (let [url-parsed (URL. url)]
-    {:scheme (.getProtocol url-parsed)
-     :server-name (.getHost url-parsed)
-     :server-port (if-pos (.getPort url-parsed))
-     :uri (.getPath url-parsed)
-     :query-string (.getQuery url-parsed)}))
+        [clojure.string :only [split trim]]))
 
 (defn ensure-proper-url
   [loc default-protocol default-host-port]
@@ -47,7 +35,7 @@
              (get-in resp [:headers "location"])
              (:scheme req)
              (host-and-port req))]
-    (merge req (parse-url url))))
+    (merge req (core/parse-url url))))
 
 (defn redirect [client req resp]
   (let [{:keys [request-method]} req
@@ -145,14 +133,15 @@
 
 (defn basic-auth [req]
   (if-let [[user password] (:basic-auth req)]
-    (-> req (dissoc :basic-auth)
-	(assoc-in [:headers "Authorization"]
-		  (str "Basic "
-       (util/base64-encode (util/utf8-bytes (str user ":" password)))))))
-  req)
+    (-> req
+        (dissoc :basic-auth)
+        (assoc-in [:headers "Authorization"]
+                  (str "Basic "
+                       (util/base64-encode (util/utf8-bytes (str user ":" password))))))
+    req))
 
 (defn content-type-value [type]
-	       (if (keyword? type)
+  (if (keyword? type)
     (str "application/" (name type))
     type))
 
@@ -165,9 +154,9 @@
      req))
 
 (defn content-type [req]
-  (if (not (:content-type req)) req
-    (update-in req [content-type]
-	       content-type-value)))
+  (if (not (:content-type req))
+    req
+    (update-in req [:content-type] content-type-value)))
 
 (defn xml-root [body]
   (-> body
@@ -176,53 +165,43 @@
       parse
       zip/xml-zip))
 
-(defn charset
-  "Get charset from meta tag."
-  [body]
-  (let [root (xml-root body)
-	meta (xml-zip/xml1-> root
-				:head
-				:meta)]
-    (if-let [content (first (filter #(= "Content-Type"
-					(:http-equiv (:attrs %)))
-				    meta))]
-      (->> content
-	   :attrs
-	     :content
-	     (str/split #"=")
-	     last
-	     str/trim))))
-
 (defn strip-punc [s]
   (let [strip
 	(some identity (map #(.endsWith s %)
 			    [";" ":" "." ","]))]
-    (if strip (.substring s 0 (- (.length s) 1)))))
+    (if (not strip) s
+	(.substring s 0 (- (.length s) 1)))))
 
-(defn charset-body
- [resp]
- (let [{:keys [headers body]} resp
-       content-type (headers "content-type")]
-   (if (and content-type
-	    (.startsWith content-type "text/html"))
-      (let [b (IOUtils/toByteArray body)
-	    charset (or (-?> (headers "content-type")
-			     (split #"=")
-			     second
-			     strip-punc
-			     trim)
-			(charset (String. b "UTF-8"))
-			"UTF-8")]
-	(assoc resp :body (String. b charset)))
-      resp)))
-
+(defn charset
+  "Get charset from meta tag."
+  [{:keys [headers body]}]
+  (let [b (IOUtils/toByteArray body)]
+    (or (-?> (headers "content-type")
+	     (split #"=")
+	     second
+	     strip-punc
+	     trim)
+	(let [root (xml-root (String. b "UTF-8"))
+	      meta (xml-zip/xml1-> root
+				   :head
+				   :meta)]
+	  (if-let [content (first (filter #(= "Content-Type"
+					      (:http-equiv (:attrs %)))
+					  meta))]
+	    (->> content
+		 :attrs
+		 :content
+		 (str/split #"=")
+		 last
+		 str/trim)))
+	"UTF-8")))
 
 (defn request
   ([method url] (request #(core/basic-http-client)
                          method
                          url))
   ([client-pool method url]
-     (let [req (-> (if (map? url) url (parse-url url))
+     (let [req (-> (if (map? url) url (core/parse-url url))
                    (merge {:request-method method
                            :accept-encoding gzip})
                    content-type
@@ -234,6 +213,6 @@
                    input-coercion)
            resp (->> (core/request (client-pool) req)
                      decompress
-		     charset-body
+;;		     charset-body
                      (output-coercion req))]
        resp)))

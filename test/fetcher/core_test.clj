@@ -22,7 +22,17 @@
     [:post "/post"]
       {:status 200 :body (io/slurp* (:body req))}
     [:get "/error"]
-      {:status 500 :body "o noes"}))
+      {:status 500 :body "o noes"}
+    [:get "/moved"]
+      {:status 301 :headers {"Location" "http://localhost:8080/get"}}
+    [:get "/moved-absolute"]
+      {:status 301 :headers {"Location" "/get"}}
+    [:get "/moved-relative"]
+      {:status 301 :headers {"Location" "get"}}
+    [:get "/moved-no-prot"]
+      {:status 301 :headers {"Location" "localhost:8080/get"}}
+    [:get "/bounce"]
+      {:status 302 :headers {"Location" "http://localhost:8080/moved"}}))
 
 (def base-req
   {:scheme "http"
@@ -80,3 +90,23 @@
 (deftest returns-status-on-exceptional-responses
   (let [resp (request {:request-method :get :uri "/error"})]
     (is (= 500 (:status resp)))))
+
+(deftest redirect-moved-test
+  (let [resp (request {:request-method :get :uri "/moved"})]
+    (is (= 200 (:status resp))))
+  (let [resp (request {:request-method :get :uri "/moved-absolute"})]
+    (is (= 200 (:status resp))))
+  (let [resp (request {:request-method :get :uri "/moved-relative"})]
+    (is (= 200 (:status resp)))))
+
+(deftest redirect-strategy-test
+  (let [client (core/basic-http-client
+                {:params core/default-params})
+        resp (core/request client {:request-method :get
+                                   :scheme "http"
+                                   :server-name "localhost"
+                                   :server-port 8080
+                                   :uri "/bounce"})]
+    (is (= [[:302 "http://localhost:8080/moved"]
+            [:301 "http://localhost:8080/get"]]
+             (:redirects resp)))))
