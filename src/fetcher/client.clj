@@ -23,8 +23,30 @@
      :uri (.getPath url-parsed)
      :query-string (.getQuery url-parsed)}))
 
+(defn ensure-proper-url
+  [loc default-protocol default-host-port]
+  (cond (.startsWith loc "/")
+        (format "%s://%s%s" default-protocol default-host-port loc)
+        
+        (not (.startsWith loc "http"))
+        (format "%s://%s/%s" default-protocol default-host-port loc)
+
+        :default
+        loc))
+
+(defn host-and-port
+  "Host and port string in the format <host>:<port>.  If no port
+   is given then <host> is returned."
+  [{:keys [server-name server-port]}]
+  (if (and server-port (pos? server-port))
+    (format "%s:%s" server-name server-port)
+    server-name))
+
 (defn redirect-req [req resp]
-  (let [url (get-in resp [:headers "location"])]
+  (let [url (ensure-proper-url
+             (get-in resp [:headers "location"])
+             (:scheme req)
+             (host-and-port req))]
     (merge req (parse-url url))))
 
 (defn redirect [client req resp]
@@ -62,23 +84,23 @@
 
 (defn output-coercion [req resp]
   (let [{:keys [as,chunked?]
-	 :or {as :string chunked? false}} req
-	{:keys [headers,body]} resp
-	chunked? (and chunked?
-		      (= (clojure.core/get headers "transfer-encoding") "chunked"))
-	as-fn (fn [^java.io.InputStream is]
-		(case as 
-		      :byte-array (IOUtils/toByteArray is)
-		      :string (String. (IOUtils/toByteArray is) "UTF-8")))]
+         :or {as :string chunked? false}} req
+         {:keys [headers,body]} resp
+         chunked? (and chunked?
+                       (= (clojure.core/get headers "transfer-encoding") "chunked"))
+         as-fn (fn [^java.io.InputStream is]
+                 (case as 
+                       :byte-array (IOUtils/toByteArray is)
+                       :string (String. (IOUtils/toByteArray is) "UTF-8")))]
     (-> resp 
-	(update-in [:body]
-		   (fn [is]
-		     (if (not (instance? java.io.InputStream is))
-		       is
-		       (if chunked?
-			 (map as-fn (chunk-seq is))
-			 (let [r (as-fn is)]
-			   r))))))))
+        (update-in [:body]
+                   (fn [is]
+                     (if (not (instance? java.io.InputStream is))
+                       is
+                       (if chunked?
+                         (map as-fn (chunk-seq is))
+                         (let [r (as-fn is)]
+                           r))))))))
 
 (defn input-coercion
   [{:keys [body] :as req}]
@@ -89,15 +111,15 @@
 
 (defn decompress
   [resp]
-  (case (get-in resp [:headers "Content-Encoding"])
+  (case (get-in resp [:headers "content-encoding"])
 	"gzip"
 	(update-in resp [:body]
-		   (fn [^java.io.InputStream is]
-		     (java.util.zip.GZIPInputStream. is)))
+               (fn [^java.io.InputStream is]
+                 (java.util.zip.GZIPInputStream. is)))
 	"deflate"
 	(update-in resp [:body]
-		   (fn [^java.io.InputStream is]
-		     (java.util.zip.InflaterInputStream. is)))
+               (fn [^java.io.InputStream is]
+                 (java.util.zip.InflaterInputStream. is)))
 	resp))
 
 (def gzip ["gzip" "deflate"])
@@ -179,8 +201,10 @@
 
 (defn charset-body
  [resp]
-  (let [{:keys [headers body]} resp]
-    (if (.startsWith (headers "content-type") "text/html")
+ (let [{:keys [headers body]} resp
+       content-type (headers "content-type")]
+   (if (and content-type
+	    (.startsWith content-type "text/html"))
       (let [b (IOUtils/toByteArray body)
 	    charset (or (-?> (headers "content-type")
 			     (split #"=")
@@ -192,24 +216,24 @@
 	(assoc resp :body (String. b charset)))
       resp)))
 
+
 (defn request
-  ([method url] (request (core/pooled-http-client) method url))
-  ([client method url]
+  ([method url] (request #(core/basic-http-client)
+                         method
+                         url))
+  ([client-pool method url]
      (let [req (-> (if (map? url) url (parse-url url))
-		    (merge {:request-method method
-			    :accept-encoding gzip})
-		    content-type
-		    basic-auth
-		    accept-encoding
-		    accept
-		    query-params
-		    basic-auth
-		    input-coercion)
-	    resp (->>
-		  (core/request client req)
-		  charset-body
-		  (redirect client req)
-		  (output-coercion req)
-		  decompress
-		  )]
-	resp)))
+                   (merge {:request-method method
+                           :accept-encoding gzip})
+                   content-type
+                   basic-auth
+                   accept-encoding
+                   accept
+                   query-params
+                   basic-auth
+                   input-coercion)
+           resp (->> (core/request (client-pool) req)
+                     decompress
+		     charset-body
+                     (output-coercion req))]
+       resp)))
