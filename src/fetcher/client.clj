@@ -211,11 +211,6 @@
 		      
    :default req))
 
-(defn ensure-gzip-if-possible [req]
-  (if (:chunked? req)
-    req
-    (assoc req :accept-encoding gzip)))
-
 (defn request
   ([method url] (request #(core/basic-http-client)
                          method

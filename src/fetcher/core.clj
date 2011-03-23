@@ -144,20 +144,15 @@
          (.addHeader http-req "Connection" "close")
          (doseq [[header-n header-v] headers]
            (.addHeader http-req header-n header-v))
-         (if body
+         (when body
            (let [http-body (ByteArrayEntity. body)]
              (.setEntity ^HttpEntityEnclosingRequest http-req http-body)))
-         (let [http-resp (.execute http-client http-req)
-	       
-               resp 
-	       {:status (.getStatusCode (.getStatusLine http-resp))
-                     :headers (parse-headers http-resp)
-		  :body 
-		(when-let [ent (.getEntity http-resp)]
-		  (.getContent ent))
-		     :entity (.getEntity http-resp)
-                     :url http-url
-                     :redirects @redirects}]
-           resp))))
+         (let [http-resp (.execute http-client http-req) ]
+	   {:status (.getStatusCode (.getStatusLine http-resp))
+	    :headers (parse-headers http-resp)
+	    :body  (when-let [ent (.getEntity http-resp)]
+		     (.getContent ent))		
+	    :url http-url
+	    :redirects @redirects}))))
   ([config]
      (request (basic-http-client) config)))
