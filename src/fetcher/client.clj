@@ -50,6 +50,7 @@
      :else
      resp)))
 
+
 (defn- chunk-seq
   "lazy sequence of input-streams for each of the chunks encoded in the
    chunk input-stream. Assumes input-stream is using chunked http transport."
@@ -83,12 +84,10 @@
     (-> resp 
         (update-in [:body]
                    (fn [is]
-                     (if (not (instance? java.io.InputStream is))
-                       is
-                       (if chunked?
-                         (map as-fn (chunk-seq is))
-                         (let [r (as-fn is)]
-                           r))))))))
+		     (cond
+		      (not (instance? java.io.InputStream is)) is
+		      chunked? (map as-fn (chunk-seq is))
+		      :default (as-fn is)))))))
 
 (defn input-coercion
   [{:keys [body] :as req}]
@@ -112,7 +111,7 @@
 
 (def gzip ["gzip" "deflate"])
 
-(defn accept-encoding 
+(defn wrap-accept-encoding 
   [{:keys [accept-encoding] :as req}]
   (if accept-encoding
     (-> req (dissoc :accept-encoding)
@@ -221,19 +220,20 @@
   ([method url] (request #(core/basic-http-client)
                          method
                          url))
-  ([client-pool method url]
+  ([client-pool method url
+    & {:keys [accept-encoding]
+       :or {accept-encoding gzip}}]
      (let [req (-> url
 		   ensure-parsed-url		   
-                   (merge {:request-method method})
-		   ensure-gzip-if-possible
+                   (merge {:request-method method :accept-encoding accept-encoding})
                    content-type
                    basic-auth
-                   accept-encoding
+                   wrap-accept-encoding
                    accept
                    query-params
                    basic-auth
                    input-coercion)
-           resp (->> (core/request (client-pool) req)
-                     decompress
-                     (output-coercion req))]
+	   resp (->> (core/request (client-pool) req)
+		     decompress
+		     (output-coercion req))]
        resp)))

@@ -123,12 +123,12 @@
 
 (deftest apply-on-accept-encoding
   (is (=  {:headers {"Accept-Encoding" "identity, gzip"}}
-          (client/accept-encoding
+          (client/wrap-accept-encoding
            {:accept-encoding [:identity :gzip]}))))
 
 (deftest pass-on-no-accept-encoding
   (let [req {:uri "/foo"}]
-    (is (= req (client/accept-encoding req)))))
+    (is (= req (client/wrap-accept-encoding req)))))
 
 
 (deftest apply-on-output-coercion

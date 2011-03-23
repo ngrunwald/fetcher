@@ -148,10 +148,14 @@
            (let [http-body (ByteArrayEntity. body)]
              (.setEntity ^HttpEntityEnclosingRequest http-req http-body)))
          (let [http-resp (.execute http-client http-req)
-               resp {:status (.getStatusCode (.getStatusLine http-resp))
+	       
+               resp 
+	       {:status (.getStatusCode (.getStatusLine http-resp))
                      :headers (parse-headers http-resp)
-                     :body (when-let [ent (.getEntity http-resp)]
-                             (.getContent ent))
+		  :body 
+		(when-let [ent (.getEntity http-resp)]
+		  (.getContent ent))
+		     :entity (.getEntity http-resp)
                      :url http-url
                      :redirects @redirects}]
            resp))))
