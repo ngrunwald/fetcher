@@ -200,25 +200,6 @@
     (is (= "/foo" (:uri resp)))
     (is (= "bar=bat" (:query-string resp)))))
 
-(deftest chunked-request-test
-  (let [resp (client/output-coercion
-              {:chunked? true}
-              {:body (-> "1\r\na\r\n3\r\nfoo\r\n0\r\n\r\n"
-                         .getBytes
-                         io/input-stream)
-               :headers {"transfer-encoding" "chunked"}})]
-    (is (= ["a" "foo"] (:body resp)))))
-
-#_(deftest chunked-request-stress-test
-    (let [client (fn [req]
-                   {:body (test-stream (.getBytes "3\r\nfoo\r\n")
-                                       10
-                                       (.getBytes "0\r\n\r\n"))
-                    :headers {"transfer-encoding" "chunked"}})
-          o-client (client/wrap-output-coercion client)
-          resp (o-client {:chunked? true})]
-      (is (= 10 (count (:body resp))))))
-
 (deftest strip-bad-punc-test
   (is (= "utf-8"
          (client/strip-punc "utf-8;")))

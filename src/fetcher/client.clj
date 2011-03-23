@@ -51,34 +51,9 @@
      resp)))
 
 
-(defn- chunk-seq
-  "lazy sequence of input-streams for each of the chunks encoded in the
-   chunk input-stream. Assumes input-stream is using chunked http transport."
-  [^java.io.InputStream is]
-  (let [when-done #(do (.close is))
-	r (-> is java.io.InputStreamReader. java.io.BufferedReader.)]
-    (take-while identity
-		(repeatedly
-		 #(let [line (.readLine r)]
-		    (if (or (nil? line)
-			    (.isEmpty line))
-		      (do (when-done) nil)
-		      (let [size (Integer/decode (str "0x" line))
-			    char-data (util/read-bytes r size)]	       
-			(if (zero? size)
-			  (do (when-done) nil)
-			  (let [chunk (String. char-data 0 size)]
-			    (.readLine r) ;after chunk line terminator
-			    (-> (.getBytes chunk "UTF-8") java.io.ByteArrayInputStream.))))))))))
-
 (defn output-coercion [req resp]
-  (let [{:keys [as,chunked?]
-         :or {as :string chunked? false}} req
-         {:keys [headers,body]} resp
-         chunked? (and chunked?
-                       (= (clojure.core/get headers "transfer-encoding") "chunked"))
-         as-fn (fn [^java.io.InputStream is]
-                 (case as
+  (let [as-fn (fn [^java.io.InputStream is]
+                 (case (or (:as req) :string)
 		       :input-stream is
                        :byte-array (IOUtils/toByteArray is)
                        :string (String. (IOUtils/toByteArray is) "UTF-8")))]
@@ -87,7 +62,6 @@
                    (fn [is]
 		     (cond
 		      (not (instance? java.io.InputStream is)) is
-		      chunked? (map as-fn (chunk-seq is))
 		      :default (as-fn is)))))))
 
 (defn input-coercion
