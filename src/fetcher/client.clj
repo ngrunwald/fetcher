@@ -203,14 +203,29 @@
 	    (charset-html5 meta)))
       "UTF-8"))
 
+(defn ensure-parsed-url [req]
+  (cond
+   (string? req) (core/parse-url req)
+   (:url req) (-> req
+		  (merge (core/parse-url (:url req)))
+		  (dissoc :url))
+		      
+   :default req))
+
+(defn ensure-gzip-if-possible [req]
+  (if (:chunked? req)
+    req
+    (assoc req :accept-encoding gzip)))
+
 (defn request
   ([method url] (request #(core/basic-http-client)
                          method
                          url))
   ([client-pool method url]
-     (let [req (-> (if (map? url) url (core/parse-url url))
-                   (merge {:request-method method
-                           :accept-encoding gzip})
+     (let [req (-> url
+		   ensure-parsed-url		   
+                   (merge {:request-method method})
+		   ensure-gzip-if-possible
                    content-type
                    basic-auth
                    accept-encoding
