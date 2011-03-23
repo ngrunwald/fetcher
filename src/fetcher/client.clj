@@ -102,11 +102,11 @@
 	"gzip"
 	(update-in resp [:body]
 		   (fn [^java.io.InputStream is]
-		     (java.util.zip.GZIPInputStream. is)))
+		     (when is (java.util.zip.GZIPInputStream. is))))
 	"deflate"
 	(update-in resp [:body]
 		   (fn [^java.io.InputStream is]
-		     (java.util.zip.InflaterInputStream. is)))
+		     (when is (java.util.zip.InflaterInputStream. is))))
 	resp))
 
 (def gzip ["gzip" "deflate"])
