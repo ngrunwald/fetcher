@@ -137,6 +137,14 @@
               {:body (io/input-stream (.getBytes "foo"))})]
     (is (Arrays/equals (.getBytes "foo") (:body resp)))))
 
+(deftest input-stream-output-coercion
+  (let [resp (client/output-coercion
+	      {:as :input-stream}
+	      {:body (io/input-stream (.getBytes "foo"))})]
+    (is (instance? java.io.InputStream (:body resp)))
+    (is (Arrays/equals (.getBytes "foo")
+		      (org.apache.commons.io.IOUtils/toByteArray (:body resp))))))
+
 (deftest pass-on-no-output-coercion
   (let [resp (client/output-coercion {} {:body nil})]
     (is (nil? (:body resp))))
