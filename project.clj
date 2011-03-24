@@ -5,8 +5,6 @@
                  [org.apache.httpcomponents/httpclient "4.1"]
                  [org.apache.httpcomponents/httpcore "4.1"]
                  [clj-sys/plumbing "0.1.3-SNAPSHOT"]
-                 [work "0.2.7-SNAPSHOT"]
-		 [org.w3c.jigsaw/jigsaw "2.2.6"]
                  [html-parse "0.0.1-SNAPSHOT"]
                  [webmine "0.1.3-SNAPSHOT"]
                  [crane "1.0-SNAPSHOT"]

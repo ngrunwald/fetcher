@@ -16,7 +16,6 @@
   (:import (org.apache.http.impl.conn.tsccm ThreadSafeClientConnManager))
   (:import (java.util.concurrent TimeUnit))
   (:import (java.net URL))
-  (:use work.graph)
   (:require [webmine.urls :as wm.urls]
             [clojure.contrib.logging :as log]))
 
