@@ -50,45 +50,19 @@
      :else
      resp)))
 
-(defn- chunk-seq
-  "lazy sequence of input-streams for each of the chunks encoded in the
-   chunk input-stream. Assumes input-stream is using chunked http transport."
-  [^java.io.InputStream is]
-  (let [when-done #(do (.close is))
-	r (-> is java.io.InputStreamReader. java.io.BufferedReader.)]
-    (take-while identity
-		(repeatedly
-		 #(let [line (.readLine r)]
-		    (if (or (nil? line)
-			    (.isEmpty line))
-		      (do (when-done) nil)
-		      (let [size (Integer/decode (str "0x" line))
-			    char-data (util/read-bytes r size)]	       
-			(if (zero? size)
-			  (do (when-done) nil)
-			  (let [chunk (String. char-data 0 size)]
-			    (.readLine r) ;after chunk line terminator
-			    (-> (.getBytes chunk "UTF-8") java.io.ByteArrayInputStream.))))))))))
 
 (defn output-coercion [req resp]
-  (let [{:keys [as,chunked?]
-         :or {as :string chunked? false}} req
-         {:keys [headers,body]} resp
-         chunked? (and chunked?
-                       (= (clojure.core/get headers "transfer-encoding") "chunked"))
-         as-fn (fn [^java.io.InputStream is]
-                 (case as 
+  (let [as-fn (fn [^java.io.InputStream is]
+                 (case (or (:as req) :string)
+		       :input-stream is
                        :byte-array (IOUtils/toByteArray is)
                        :string (String. (IOUtils/toByteArray is) "UTF-8")))]
     (-> resp 
         (update-in [:body]
                    (fn [is]
-                     (if (not (instance? java.io.InputStream is))
-                       is
-                       (if chunked?
-                         (map as-fn (chunk-seq is))
-                         (let [r (as-fn is)]
-                           r))))))))
+		     (cond
+		      (not (instance? java.io.InputStream is)) is
+		      :default (as-fn is)))))))
 
 (defn input-coercion
   [{:keys [body] :as req}]
@@ -103,16 +77,16 @@
 	"gzip"
 	(update-in resp [:body]
 		   (fn [^java.io.InputStream is]
-		     (java.util.zip.GZIPInputStream. is)))
+		     (when is (java.util.zip.GZIPInputStream. is))))
 	"deflate"
 	(update-in resp [:body]
 		   (fn [^java.io.InputStream is]
-		     (java.util.zip.InflaterInputStream. is)))
+		     (when is (java.util.zip.InflaterInputStream. is))))
 	resp))
 
 (def gzip ["gzip" "deflate"])
 
-(defn accept-encoding 
+(defn wrap-accept-encoding 
   [{:keys [accept-encoding] :as req}]
   (if accept-encoding
     (-> req (dissoc :accept-encoding)
@@ -203,22 +177,33 @@
 	    (charset-html5 meta)))
       "UTF-8"))
 
+(defn ensure-parsed-url [req]
+  (cond
+   (string? req) (core/parse-url req)
+   (:url req) (-> req
+		  (merge (core/parse-url (:url req)))
+		  (dissoc :url))
+		      
+   :default req))
+
 (defn request
   ([method url] (request #(core/basic-http-client)
                          method
                          url))
-  ([client-pool method url]
-     (let [req (-> (if (map? url) url (core/parse-url url))
-                   (merge {:request-method method
-                           :accept-encoding gzip})
+  ([client-pool method url
+    & {:keys [accept-encoding]
+       :or {accept-encoding gzip}}]
+     (let [req (-> url
+		   ensure-parsed-url		   
+                   (merge {:request-method method :accept-encoding accept-encoding})
                    content-type
                    basic-auth
-                   accept-encoding
+                   wrap-accept-encoding
                    accept
                    query-params
                    basic-auth
                    input-coercion)
-           resp (->> (core/request (client-pool) req)
-                     decompress
-                     (output-coercion req))]
+	   resp (->> (core/request (client-pool) req)
+		     decompress
+		     (output-coercion req))]
        resp)))

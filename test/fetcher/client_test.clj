@@ -123,12 +123,12 @@
 
 (deftest apply-on-accept-encoding
   (is (=  {:headers {"Accept-Encoding" "identity, gzip"}}
-          (client/accept-encoding
+          (client/wrap-accept-encoding
            {:accept-encoding [:identity :gzip]}))))
 
 (deftest pass-on-no-accept-encoding
   (let [req {:uri "/foo"}]
-    (is (= req (client/accept-encoding req)))))
+    (is (= req (client/wrap-accept-encoding req)))))
 
 
 (deftest apply-on-output-coercion
@@ -136,6 +136,14 @@
               {:as :byte-array}
               {:body (io/input-stream (.getBytes "foo"))})]
     (is (Arrays/equals (.getBytes "foo") (:body resp)))))
+
+(deftest input-stream-output-coercion
+  (let [resp (client/output-coercion
+	      {:as :input-stream}
+	      {:body (io/input-stream (.getBytes "foo"))})]
+    (is (instance? java.io.InputStream (:body resp)))
+    (is (Arrays/equals (.getBytes "foo")
+		      (org.apache.commons.io.IOUtils/toByteArray (:body resp))))))
 
 (deftest pass-on-no-output-coercion
   (let [resp (client/output-coercion {} {:body nil})]
@@ -191,25 +199,6 @@
     (is (= 8080 (:server-port resp)))
     (is (= "/foo" (:uri resp)))
     (is (= "bar=bat" (:query-string resp)))))
-
-(deftest chunked-request-test
-  (let [resp (client/output-coercion
-              {:chunked? true}
-              {:body (-> "1\r\na\r\n3\r\nfoo\r\n0\r\n\r\n"
-                         .getBytes
-                         io/input-stream)
-               :headers {"transfer-encoding" "chunked"}})]
-    (is (= ["a" "foo"] (:body resp)))))
-
-#_(deftest chunked-request-stress-test
-    (let [client (fn [req]
-                   {:body (test-stream (.getBytes "3\r\nfoo\r\n")
-                                       10
-                                       (.getBytes "0\r\n\r\n"))
-                    :headers {"transfer-encoding" "chunked"}})
-          o-client (client/wrap-output-coercion client)
-          resp (o-client {:chunked? true})]
-      (is (= 10 (count (:body resp))))))
 
 (deftest strip-bad-punc-test
   (is (= "utf-8"
