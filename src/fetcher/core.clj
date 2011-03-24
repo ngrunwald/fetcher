@@ -31,24 +31,6 @@
      :uri (.getPath url-parsed)
      :query-string (.getQuery url-parsed)}))
 
-(defn status-check
-  "Check if status code is 304, abort if so."
-  [_ status]
-  (if (= 304 (:code status))
-    [status :abort]
-    [status :continue]))
-
-(defn ok? [c] (or (= c :200)
-                  (= c 200)
-                  (= c "200")))
-
-(defn on-response [{s :status}]
-    (-> s str keyword))
-
-;;smart fetching with modified and etag
-;; headers {:If-Modified-Since last-modified
-;;                              :If-None-Match etag}
-
 (defn path-redirect-strategy
   "Returns a RedirectStrategy that stores the redirect path in the provided
    atom as a nested vector of the form [[status-code-0 url-0] ... [status-code-n url-n]]."
