@@ -12,7 +12,7 @@
         [clojure.string :only [split trim]]))
 
 (defn ensure-proper-url
-  [loc default-protocol default-host-port]
+  [^String loc default-protocol default-host-port]
   (cond (.startsWith loc "/")
         (format "%s://%s%s" default-protocol default-host-port loc)
         
@@ -53,10 +53,10 @@
 
 (defn output-coercion [req resp]
   (let [as-fn (fn [^java.io.InputStream is]
-                 (case (or (:as req) :string)
-		       :input-stream is
-                       :byte-array (IOUtils/toByteArray is)
-                       :string (String. (IOUtils/toByteArray is) "UTF-8")))]
+                (case (or (:as req) :string)
+                      :input-stream is
+                      :byte-array (IOUtils/toByteArray is)
+                      :string (String. (IOUtils/toByteArray is) "UTF-8")))]
     (-> resp 
         (update-in [:body]
                    (fn [is]
@@ -132,12 +132,11 @@
     req
     (update-in req [:content-type] content-type-value)))
 
-(defn strip-punc [s]
-  (let [strip
-	(some identity (map #(.endsWith s %)
-			    [";" ":" "." ","]))]
+(defn strip-punc [^String s]
+  (let [strip (some identity (map #(.endsWith s %)
+                                  [";" ":" "." ","]))]
     (if (not strip) s
-	(.substring s 0 (- (.length s) 1)))))
+        (.substring s 0 (- (.length s) 1)))))
 
 (defn charset-headers [headers]
   (-?> (headers "content-type")
@@ -187,9 +186,10 @@
    :default req))
 
 (defn request
-  ([method url] (request #(core/basic-http-client)
-                         method
-                         url))
+  ([method url]
+     (request #(core/basic-http-client)
+              method
+              url))
   ([client-pool method url
     & {:keys [accept-encoding]
        :or {accept-encoding gzip}}]
@@ -203,7 +203,7 @@
                    query-params
                    basic-auth
                    input-coercion)
-	   resp (->> (core/request (client-pool) req)
-		     decompress
-		     (output-coercion req))]
+           resp (->> (core/request ^HttpClient (client-pool) req)
+                     decompress
+                     (output-coercion req))]
        resp)))
