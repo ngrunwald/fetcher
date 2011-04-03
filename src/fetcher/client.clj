@@ -8,7 +8,7 @@
   (:require [clojure.contrib.zip-filter.xml :as xml-zip])
   (:import (org.apache.commons.io IOUtils))
   (:refer-clojure :exclude (get))
-  (:use [plumbing.core :only [-?>]]
+  (:use [plumbing.error :only [-?>]]
         [clojure.string :only [split trim]]))
 
 (defn ensure-proper-url

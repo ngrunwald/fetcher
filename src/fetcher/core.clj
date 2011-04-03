@@ -16,8 +16,7 @@
   (:import (org.apache.http.impl.conn.tsccm ThreadSafeClientConnManager))
   (:import (java.util.concurrent TimeUnit))
   (:import (java.net URL))
-  (:require [webmine.urls :as wm.urls]
-            [clojure.contrib.logging :as log]))
+  (:require [clojure.contrib.logging :as log]))
 
 (defn if-pos [v]
   (if (and v (pos? v)) v))
