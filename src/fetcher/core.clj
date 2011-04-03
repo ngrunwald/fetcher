@@ -3,9 +3,11 @@
   (:import (org.apache.http HttpRequest HttpEntityEnclosingRequest HttpResponse Header))
   (:import (org.apache.http.util EntityUtils))
   (:import (org.apache.http.entity ByteArrayEntity))
-  (:import (org.apache.http.client.methods HttpGet HttpHead HttpPut HttpPost HttpDelete))
+  (:import (org.apache.http.client HttpClient RedirectStrategy))
+  (:import (org.apache.http.client.methods HttpGet HttpHead HttpPut HttpPost HttpDelete
+                                           HttpUriRequest))
   (:import (org.apache.http.client.params CookiePolicy ClientPNames))
-  (:import (org.apache.http.impl.client DefaultHttpClient))
+  (:import (org.apache.http.impl.client DefaultHttpClient DefaultRedirectStrategy))
   (:import (org.apache.http.params BasicHttpParams HttpConnectionParams
                                    HttpParams HttpProtocolParams))
   (:import (org.apache.http.conn.scheme PlainSocketFactory Scheme
@@ -37,9 +39,9 @@
     (^HttpUriRequest getRedirect [^org.apache.http.HttpRequest request
                                   ^org.apache.http.HttpResponse response
                                   ^org.apache.http.protocol.HttpContext context]
-                     (let [redirect-req (proxy-super
-                                         getRedirect
-                                         request response context)
+                     (let [^HttpUriRequest redirect-req (proxy-super
+                                                         getRedirect
+                                                         request response context)
                            status (-> response
                                       .getStatusLine
                                       .getStatusCode
@@ -59,8 +61,8 @@
    ClientPNames/REJECT_RELATIVE_REDIRECT false})
 
 (defn config-client
-  [c {:keys [params redirect-strategy]}]
-  (let [client-params (.getParams c)]
+  [^HttpClient c {:keys [params ^RedirectStrategy redirect-strategy]}]
+  (let [^HttpParams client-params (.getParams c)]
     (doseq [[pk pv] params]
       (.setParameter client-params pk pv)))
   (.setRedirectStrategy c redirect-strategy)
@@ -99,8 +101,8 @@
 (defn request
   "Executes the HTTP request corresponding to the given Ring request map and
    returns the Ring response map corresponding to the resulting HTTP response."
-  ([http-client {:keys [request-method scheme server-name server-port uri query-string
-                        headers content-type character-encoding body]}]
+  ([^HttpClient http-client {:keys [request-method scheme server-name server-port uri query-string
+                                    headers content-type character-encoding body]}]
      (try
        (let [http-url (str scheme "://" server-name
                            (if server-port (str ":" server-port))
@@ -114,7 +116,7 @@
                             :post   (HttpPost. http-url)
                             :delete (HttpDelete. http-url))
              redirects (atom [])
-             redirect-strategy (path-redirect-strategy redirects)]
+             ^RedirectStrategy redirect-strategy (path-redirect-strategy redirects)]
          (.setRedirectStrategy http-client redirect-strategy)
          (if (and content-type character-encoding)
            (.addHeader http-req "Content-Type"
@@ -127,7 +129,7 @@
          (when body
            (let [http-body (ByteArrayEntity. body)]
              (.setEntity ^HttpEntityEnclosingRequest http-req http-body)))
-         (let [http-resp (.execute http-client http-req) ]
+         (let [^HttpResponse http-resp (.execute http-client http-req) ]
 	   {:status (.getStatusCode (.getStatusLine http-resp))
 	    :headers (parse-headers http-resp)
 	    :body  (when-let [ent (.getEntity http-resp)]
