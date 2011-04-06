@@ -17,19 +17,10 @@
   (:import (org.apache.http.conn.ssl SSLSocketFactory))
   (:import (org.apache.http.impl.conn.tsccm ThreadSafeClientConnManager))
   (:import (java.util.concurrent TimeUnit))
-  (:import (java.net URL))
-  (:require [clojure.contrib.logging :as log]))
+  (:import (java.net URL)))
 
 (defn if-pos [v]
   (if (and v (pos? v)) v))
-
-(defn parse-url [url]
-  (let [url-parsed (URL. url)]
-    {:scheme (.getProtocol url-parsed)
-     :server-name (.getHost url-parsed)
-     :server-port (if-pos (.getPort url-parsed))
-     :uri (.getPath url-parsed)
-     :query-string (.getQuery url-parsed)}))
 
 (defn path-redirect-strategy
   "Returns a RedirectStrategy that stores the redirect path in the provided
@@ -98,10 +89,23 @@
   (into {} (map (fn [^Header h] [(.toLowerCase (.getName h)) (.getValue h)])
                 (iterator-seq (.headerIterator http-resp)))))
 
+(defn parse-url [url]
+  (let [url-parsed (URL. url)
+	ref (.getRef url-parsed)
+	uri (.getPath url-parsed)]
+    {:scheme (.getProtocol url-parsed)
+     :server-name (.getHost url-parsed)
+     :server-port (if-pos (.getPort url-parsed))
+     :uri (if (and ref (.startsWith ref "!"))
+	    (str uri "#" ref)
+	    uri)
+     :query-string (.getQuery url-parsed)}))
+
 (defn request
   "Executes the HTTP request corresponding to the given Ring request map and
    returns the Ring response map corresponding to the resulting HTTP response."
-  ([^HttpClient http-client {:keys [request-method scheme server-name server-port uri query-string
+  ([^HttpClient http-client {:keys [request-method scheme server-name
+				    server-port uri query-string
                                     headers content-type character-encoding body]}]
      (try
        (let [http-url (str scheme "://" server-name
