@@ -96,9 +96,12 @@
       "UTF-8"))
 
 (defn encoded [{:keys [body] :as resp}]
-  (let [bytes (IOUtils/toByteArray body)
-	cs (charset (assoc resp :body (String. bytes "UTF-8")))]
-    (String. bytes cs)))
+  (try 
+    (let [bytes (IOUtils/toByteArray body)
+	  cs (charset (assoc resp :body (String. bytes "UTF-8")))]
+      (String. bytes cs))
+    (finally
+     (.close body))))
 
 (defn output-coercion [req {:keys [body] :as resp}]
   (if (not (instance? java.io.InputStream body))
