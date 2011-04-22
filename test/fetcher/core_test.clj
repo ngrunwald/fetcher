@@ -110,3 +110,14 @@
     (is (= [[:302 "http://localhost:8080/moved"]
             [:301 "http://localhost:8080/get"]]
              (:redirects resp)))))
+
+(deftest strip-query-string-test
+  (is (empty?
+       (core/strip-query-string "utm_source=feedburner&utm_medium=feed&utm_campaign=Feed%3A+InfectiousGreed+%28Paul+Kedrosky%27s+Infectious+Greed%29")))
+  (is (= "a=2&b=1" (core/strip-query-string "b=1&a=2"))))
+
+(deftest resolved-url-test
+  (is (=
+       "http://paul.kedrosky.com/archives/2011/04/coachella-glish.html"
+       (core/resolved-url
+	{:redirects [[:301 "http://paul.kedrosky.com/archives/2011/04/coachella-glish.html?utm_source=feedburner&utm_medium=feed&utm_campaign=Feed%3A+InfectiousGreed+%28Paul+Kedrosky%27s+Infectious+Greed%29%22"]]}))))
