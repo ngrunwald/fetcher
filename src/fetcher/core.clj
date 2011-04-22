@@ -99,11 +99,12 @@
                 (iterator-seq (.headerIterator http-resp)))))
 
 (defn strip-query-string [query-string]
-  (str/join  "&"
+  (when query-string
+    (str/join  "&"
 	     (sort
 	      (remove
 	       (fn [^String x] (.startsWith x "utm_"))
-	       (str/split query-string #"&" )))))
+	       (str/split query-string #"&" ))))))
 
 (defn build-url [{:keys [scheme,
 			 server-name,
