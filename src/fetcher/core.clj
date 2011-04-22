@@ -18,12 +18,12 @@
   (:import (org.apache.http.impl.conn.tsccm ThreadSafeClientConnManager))
   (:import (java.util.concurrent TimeUnit))
   (:import (java.net URL))
-  (:require [clojure.contrib.logging :as log]))
+  (:require [clojure.contrib.logging :as log] [clojure.string :as str]))
 
 (defn if-pos [v]
   (if (and v (pos? v)) v))
 
-(defn parse-url [url]
+(defn parse-url [^String url]
   (let [url-parsed (URL. url)]
     {:scheme (.getProtocol url-parsed)
      :server-name (.getHost url-parsed)
@@ -98,16 +98,45 @@
   (into {} (map (fn [^Header h] [(.toLowerCase (.getName h)) (.getValue h)])
                 (iterator-seq (.headerIterator http-resp)))))
 
+(defn strip-query-string [query-string]
+  (str/join  "&"
+	     (sort
+	      (remove
+	       (fn [^String x] (.startsWith x "utm_"))
+	       (str/split query-string #"&" )))))
+
+(defn build-url [{:keys [scheme,
+			 server-name,
+			 server-port
+			 uri,
+			 query-string]}]
+  (str scheme "://" server-name
+       (when server-port
+	 (str ":" server-port))
+       uri
+       (when (and query-string
+		  (not (.isEmpty ^String query-string)))
+	 (str "?" query-string))))
+
+(defn resolved-url [{:keys [redirects,url] :as fetched}]
+  (let [resolved (or
+		  (->> redirects
+			(filter (comp #{:301 :302 :303} first))
+			last
+			second)
+		  url)]
+     (build-url
+      (update-in (parse-url resolved)
+		 [:query-string] strip-query-string))))
+
 (defn request
   "Executes the HTTP request corresponding to the given Ring request map and
    returns the Ring response map corresponding to the resulting HTTP response."
   ([^HttpClient http-client {:keys [request-method scheme server-name server-port uri query-string
-                                    headers content-type character-encoding body]}]
+                                    headers content-type character-encoding body]
+			     :as components}]
      (try
-       (let [http-url (str scheme "://" server-name
-                           (if server-port (str ":" server-port))
-                           uri
-                           (if query-string (str "?" query-string)))
+       (let [http-url (build-url components)
              ^HttpRequest
              http-req (case request-method
                             :get    (HttpGet. http-url)

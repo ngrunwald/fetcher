@@ -7,4 +7,4 @@
   (println "booting test server")
   (run-jetty
     (-> #'handler (wrap-reload '(fetcher.core-test)))
-    {:port 8080}))
+    {:port 8080 :join? false}))
