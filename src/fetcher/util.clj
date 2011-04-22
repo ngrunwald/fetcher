@@ -1,5 +1,4 @@
 (ns fetcher.util
-  "Helper functions for the HTTP client."
   (:import (java.net URLEncoder))
   (:import (org.apache.commons.codec.binary Base64))
   (:import (java.io ByteArrayInputStream ByteArrayOutputStream))
