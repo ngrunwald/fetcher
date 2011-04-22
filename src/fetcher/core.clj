@@ -129,6 +129,18 @@
       (update-in (parse-url resolved)
 		 [:query-string] strip-query-string))))
 
+(defn parse-url [url]
+  (let [url-parsed (URL. url)
+	ref (.getRef url-parsed)
+	uri (.getPath url-parsed)]
+    {:scheme (.getProtocol url-parsed)
+     :server-name (.getHost url-parsed)
+     :server-port (if-pos (.getPort url-parsed))
+     :uri (if (and ref (.startsWith ref "!"))
+	    (str uri "#" ref)
+	    uri)
+     :query-string (.getQuery url-parsed)}))
+
 (defn request
   "Executes the HTTP request corresponding to the given Ring request map and
    returns the Ring response map corresponding to the resulting HTTP response."

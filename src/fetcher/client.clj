@@ -51,18 +51,63 @@
      resp)))
 
 
-(defn output-coercion [req resp]
-  (let [as-fn (fn [^java.io.InputStream is]
-                (case (or (:as req) :string)
-                      :input-stream is
-                      :byte-array (IOUtils/toByteArray is)
-                      :string (String. (IOUtils/toByteArray is) "UTF-8")))]
-    (-> resp 
-        (update-in [:body]
-                   (fn [is]
-		     (cond
-		      (not (instance? java.io.InputStream is)) is
-		      :default (as-fn is)))))))
+(defn strip-punc [^String s]
+  (let [strip (some identity (map #(.endsWith s %)
+                                  [";" ":" "." ","]))]
+    (if (not strip) s
+        (.substring s 0 (- (.length s) 1)))))
+
+(defn charset-headers [headers]
+  (-?> (headers "content-type")
+	   (split #"=")
+	   second
+	   strip-punc
+	   trim))
+
+(defn charset-http-equiv [meta]
+  (if-let [content (first (filter #(= "Content-Type"
+				      (:http-equiv (attr-map %)))
+				  meta))]
+    (->> content
+	 attr-map
+	 :content
+	 (str/split #"=")
+	 last
+	 str/trim)))
+
+(defn charset-html5 [meta]
+  (if-let [content (first (filter #(:charset (attr-map %))
+				  meta))]
+    (->> content
+	 attr-map
+	 :charset
+	 str/trim)))
+
+(defn charset
+  "Get charset from meta tag."
+  [{:keys [headers body]}]
+  (or (charset-headers headers)
+      (let [root (dom body)
+	    meta (-> root
+		     head
+		     (elements "meta"))]
+	(or (charset-http-equiv meta)
+	    (charset-html5 meta)))
+      "UTF-8"))
+
+(defn encoded [{:keys [body] :as resp}]
+  (let [bytes (IOUtils/toByteArray body)
+	cs (charset (assoc resp :body (String. bytes "UTF-8")))]
+    (String. bytes cs)))
+
+(defn output-coercion [req {:keys [body] :as resp}]
+  (if (not (instance? java.io.InputStream body))
+    resp
+    (assoc resp
+      :body (case (or (:as req) :string)
+		  :input-stream body
+		  :byte-array (IOUtils/toByteArray body)
+		  :string (encoded resp)))))
 
 (defn input-coercion
   [{:keys [body] :as req}]
@@ -131,50 +176,6 @@
   (if (not (:content-type req))
     req
     (update-in req [:content-type] content-type-value)))
-
-(defn strip-punc [^String s]
-  (let [strip (some identity (map #(.endsWith s %)
-                                  [";" ":" "." ","]))]
-    (if (not strip) s
-        (.substring s 0 (- (.length s) 1)))))
-
-(defn charset-headers [headers]
-  (-?> (headers "content-type")
-	   (split #"=")
-	   second
-	   strip-punc
-	   trim))
-
-(defn charset-http-equiv [meta]
-  (if-let [content (first (filter #(= "Content-Type"
-				      (:http-equiv (attr-map %)))
-				  meta))]
-    (->> content
-	 attr-map
-	 :content
-	 (str/split #"=")
-	 last
-	 str/trim)))
-
-(defn charset-html5 [meta]
-  (if-let [content (first (filter #(:charset (attr-map %))
-				  meta))]
-    (->> content
-	 attr-map
-	 :charset
-	 str/trim)))
-
-(defn charset
-  "Get charset from meta tag."
-  [{:keys [headers body]}]
-  (or (charset-headers headers)
-      (let [root (dom body)
-	    meta (-> root
-		     head
-		     (elements "meta"))]
-	(or (charset-http-equiv meta)
-	    (charset-html5 meta)))
-      "UTF-8"))
 
 (defn ensure-parsed-url [req]
   (cond

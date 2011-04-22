@@ -200,6 +200,15 @@
     (is (= "/foo" (:uri resp)))
     (is (= "bar=bat" (:query-string resp)))))
 
+(deftest parse-url-with-hash
+  (let [u (fetcher/parse-url "http://gizmodo.com/#!5789093/the-near+future-of-mobile-gaming-is-going-to-be-pretty-epic")]
+    (is (= "/#!5789093/the-near+future-of-mobile-gaming-is-going-to-be-pretty-epic" (:uri  u)))))
+
+(deftest url-with-hash
+  (let [u "http://gizmodo.com/#!5789093/the-near+future-of-mobile-gaming-is-going-to-be-pretty-epic"]
+    (is (= u
+	    (:url (client/request :get u))))))
+
 (deftest strip-bad-punc-test
   (is (= "utf-8"
          (client/strip-punc "utf-8;")))
