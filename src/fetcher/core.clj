@@ -128,12 +128,9 @@
       "UTF-8"))
 
 (defn encoded [{:keys [body] :as resp}]
-  (try 
-    (let [bytes (IOUtils/toByteArray body)
-	  cs (charset (assoc resp :body (String. bytes "UTF-8")))]
-      (String. bytes cs))
-    (finally
-     (.close body))))
+  (let [bytes (IOUtils/toByteArray body)
+	cs (charset (assoc resp :body (String. bytes "UTF-8")))]
+    (String. bytes cs)))
 
 (defn output-coercion
   [as {:keys [headers body] :as resp}]
@@ -148,7 +145,9 @@
 		      :string (let [h (headers "content-type")]
 				(if (or (not h)
 					;;assume html string if we have no headers
-					(.contains h "text/html"))
+					(.contains h "html")
+					(.contains h "xml")
+					(.contains h "charset"))
 				  (encoded resp)
 				  body))))
 	(finally (when-not (= as :input-stream) (.close in)))))))
