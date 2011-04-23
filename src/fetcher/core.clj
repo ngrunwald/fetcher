@@ -9,7 +9,9 @@
    (org.apache.http.client.methods
 	    HttpGet HttpHead HttpPut HttpPost
 	    HttpDelete HttpUriRequest)
-	   (org.apache.http.client.params CookiePolicy ClientPNames)
+   (org.apache.http.client.params       
+    CookiePolicy ClientPNames )
+   (org.apache.http.params CoreConnectionPNames)
 	   (org.apache.http.impl.client
 	    DefaultHttpClient
 	    DefaultRedirectStrategy
@@ -264,17 +266,18 @@
 ;; CoreProtocolPNames.USER_AGENT
 ;; CoreConnectionPNames.SOCKET_BUFFER_SIZE
 ;; CoreConnectionPNames.CONNECTION_TIMEOUT
-
 (defn config-client
-  [^HttpClient client
-   {:keys [params num-retries ^RedirectStrategy redirect-strategy]	   
-    :or {num-retries 1}}]
+  [^HttpClient client 
+   {:keys [params num-retries ^RedirectStrategy redirect-strategy timeout]	   
+    :or {num-retries 1 timeout 30000}}]
   (let [^HttpParams client-params (.getParams client)]
     (doseq [[pk pv] params]
-      (.setParameter client-params pk pv)))
+      (.setParameter client-params pk pv))
+    (.setParameter client-params CoreConnectionPNames/CONNECTION_TIMEOUT timeout))
   (doto client
     (.setRedirectStrategy redirect-strategy)
     (.setHttpRequestRetryHandler (DefaultHttpRequestRetryHandler. (int num-retries) true))))
+
 
 (defn pooled-http-client
   "A threadsafe, single client using connection pools to various hosts."
