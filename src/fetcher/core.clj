@@ -142,12 +142,14 @@
 	  :body (case (or as :string)
 		      :input-stream body
 		      :byte-array (IOUtils/toByteArray body)
-		      :string (let [h (headers "content-type")]
-				(if (or (not h)
-					;;assume html string if we have no headers
-					(.contains h "html")
-					(.contains h "xml")
-					(.contains h "charset"))
+		      :string (let [h (headers "content-type")
+				    render-string? (or (not h)
+						       (.contains h "html")
+						       (.contains h "xml")
+						       (.contains h "text")
+						       (.contains h "json")
+						       (.contains h "charset"))]
+				(if render-string?
 				  (encoded resp)
 				  body))))
 	(finally (when-not (= as :input-stream) (.close in)))))))
