@@ -2,16 +2,18 @@
   (:import
    (org.apache.commons.io IOUtils)
    (org.apache.http
-	    HttpRequest HttpEntityEnclosingRequest HttpResponse Header)
-	   (org.apache.http.util EntityUtils)
-	   (org.apache.http.entity ByteArrayEntity)
-	   (org.apache.http.client HttpClient RedirectStrategy)
-	   (org.apache.http.client.methods
+    HttpRequest HttpEntityEnclosingRequest HttpResponse Header)
+   (org.apache.http.util EntityUtils)
+   (org.apache.http.entity ByteArrayEntity)
+   (org.apache.http.client HttpClient RedirectStrategy)
+   (org.apache.http.client.methods
 	    HttpGet HttpHead HttpPut HttpPost
 	    HttpDelete HttpUriRequest)
 	   (org.apache.http.client.params CookiePolicy ClientPNames)
 	   (org.apache.http.impl.client
-	    DefaultHttpClient DefaultRedirectStrategy)
+	    DefaultHttpClient
+	    DefaultRedirectStrategy
+	    DefaultHttpRequestRetryHandler)
 	   (org.apache.http.params
 	    BasicHttpParams HttpConnectionParams HttpParams HttpProtocolParams)
 	   (org.apache.http.conn.scheme PlainSocketFactory Scheme
@@ -19,7 +21,7 @@
 	   (org.apache.http.impl.client DefaultRedirectStrategy)
 	   (org.apache.http.client.methods HttpUriRequest)
 	   (org.apache.http.conn.ssl SSLSocketFactory)
-	   (org.apache.http.impl.conn.tsccm ThreadSafeClientConnManager)
+	   (org.apache.http.impl.conn.tsccm ThreadSafeClientConnManager)	   
 	   (java.util.concurrent TimeUnit)
 	   (java.net URL))
   (:require [clojure.contrib.logging :as log]
@@ -258,12 +260,15 @@
 ;; CoreConnectionPNames.CONNECTION_TIMEOUT
 
 (defn config-client
-  [^HttpClient c {:keys [params ^RedirectStrategy redirect-strategy]}]
-  (let [^HttpParams client-params (.getParams c)]
+  [^HttpClient client
+   {:keys [params num-retries ^RedirectStrategy redirect-strategy]	   
+    :or {num-retries 1}}]
+  (let [^HttpParams client-params (.getParams client)]
     (doseq [[pk pv] params]
       (.setParameter client-params pk pv)))
-  (.setRedirectStrategy c redirect-strategy)
-  c)
+  (doto client
+    (.setRedirectStrategy redirect-strategy)
+    (.setHttpRequestRetryHandler (DefaultHttpRequestRetryHandler. (int num-retries) true))))
 
 (defn pooled-http-client
   "A threadsafe, single client using connection pools to various hosts."
