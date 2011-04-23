@@ -136,7 +136,7 @@
      (.close body))))
 
 (defn output-coercion
-  [as {:keys [body] :as resp}]
+  [as {:keys [headers body] :as resp}]
   (if (not (instance? java.io.InputStream body))
     resp
     (let [in (cast java.io.InputStream body)]
@@ -145,7 +145,12 @@
 	  :body (case (or as :string)
 		      :input-stream body
 		      :byte-array (IOUtils/toByteArray body)
-		      :string (encoded resp)))
+		      :string (let [h (headers "content-type")]
+				(if (or (not h)
+					;;assume html string if we have no headers
+					(.contains h "text/html"))
+				  (encoded resp)
+				  body))))
 	(finally (when-not (= as :input-stream) (.close in)))))))
 
 (defn input-coercion
@@ -408,10 +413,10 @@
 	    method
 	    url))
   ([get-client method url
-    & {:keys [accept-encoding]
+    & {:keys [accept-encoding as]
        :or {accept-encoding gzip}}]
      (let [req (build-request method accept-encoding url)]
        (->> req
 	    (request (get-client))
 	    decompress
-	    (output-coercion (:as req))))))
+	    (output-coercion as)))))
