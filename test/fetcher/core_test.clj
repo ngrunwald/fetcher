@@ -389,3 +389,5 @@
        "http://paul.kedrosky.com/archives/2011/04/coachella-glish.html"
        (fetcher/resolved-url
 	{:redirects [[:301 "http://paul.kedrosky.com/archives/2011/04/coachella-glish.html?utm_source=feedburner&utm_medium=feed&utm_campaign=Feed%3A+InfectiousGreed+%28Paul+Kedrosky%27s+Infectious+Greed%29%22"]]}))))
+
+
