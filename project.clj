@@ -15,6 +15,5 @@
                      [ring/ring-devel "0.3.5"]]
   :repositories {"java.net" "http://download.java.net/maven/2"
                  "clojars" "http://clojars.org/repo"
-                 "snapshots" "https://mvn.getwoven.com:8443/repos/woven-internal-snapshots"
-                 "releases" "https://mvn.getwoven.com:8443/repos/woven-internal-releases"
-                 "woven" "http://mvn.getwoven.com/repos/woven-public"})
+		 "snapshots" "http://mvn.getwoven.com/repos/woven-public-snapshots"
+                 "releases" "http://mvn.getwoven.com/repos/woven-public-releases"})
