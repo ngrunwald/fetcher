@@ -1,82 +1,76 @@
-# `clj-http`
+##Fetcher
 
-A Clojure HTTP library wrapping the [Apache HttpComponents](http://hc.apache.org/) client.
+A production scale HTTP fetcher.
 
-## Usage
+A large scale fetcher should be limited by the speed of fetching results and streaming them to disk.  We don't want other communication or processing happening in the fetcher.  Rather, other services listen on the fetcher's results and pick up work by polling disk or listening on some channel.
 
-The main HTTP client functionality is provided by the `clj-http.client` namespace:
+We still have another phase of tuning ahead, but the first step is that, in addition to using Work for threading the fetcher, we also use an async http client.
 
-    (require '[clj-http.client :as client])
+##Async HTTP client with NIO
 
-The client supports simple `get`, `head`, `put`, `post`, and `delete` requests. Responses are returned as Ring-style response maps:
+We did a bunch of research, and decided to start with Ning's NIO-based async http client.
 
-    (client/get "http://google.com")
-    => {:status 200
-        :headers {"date" "Sun, 01 Aug 2010 07:03:49 GMT"
-                  "cache-control" "private, max-age=0"
-                  "content-type" "text/html; charset=ISO-8859-1"
-                  ...}
-        :body "<!doctype html>..."}
+Some folks suggested rolling our own solution using evening a la epoll, or directly using java.nio.channels.SelectorProvider.  We try to use other libs when we can, so we avoided this and will do it only if forced to for performance reasons.
 
-More example requests:
+If you use fetcher, you don't need to worry about the details of the async http client, as you just pass your put-done fn into Work as usual.
 
-    (client/get "http://site.com/resources/id")
+In case you case, you can see how we've wired up the fetch function to wrap the Ning library and use Work's put-done as Ning's response-callback.
 
-    (client/get "http://site.com/resources/3" {:accept :json})
+    (defn dispatch-generator
+      "Return a fn to handle a completed response."
+      [feed-key feed-url response-callback]
+      (fn [state]
+        (let [code (-> (c/status state) :code)
+              headers (c/headers state)
+              body (-> (c/body state) .toString)]
+          (response-callback feed-key
+                             feed-url
+                             code
+                             headers
+                             body)
+          [true :continue])))
 
-    (client/post "http://site.com/resources" {:body byte-array})
+    (defn fetch
+      "fetch a feed for updates.  Responses are handled asynchronously by the provided callback.
 
-    (client/post "http://site.com/resources" {:body "string"})
+      The callback should accept five arguments: k, u, response code, headers, and body."
+      [[k u & headers] put-done]
+      (let [callbacks (merge async-req/*default-callbacks*
+                             {:status status-check
+                              :completed (dispatch-generator k u put-done)})
+            req (async-req/prepare-request :get
+                     u
+                     :headers headers)
+        resp (apply async-req/execute-request
+                        req
+                        (apply concat callbacks))]
+        resp))
 
-    (client/get "http://site.com/protected" {:basic-auth ["user" "pass"]})
+This is most of the core of fetcher's plumbing.  The other notable part is the handlers, which are just a way of putting your put-done function together with functions that handle redirects and other non-OK (not 200) status codes.
 
-    (client/get "http://site.com/search" {:query-params {"q" "foo, bar"}})
+##Async worker pools with Work
 
-    (client/get "http://site.com/favicon.ico" {:as :byte-array})
+The other change we made for async is in Work.  Work used to call the put-done function with the results of the work function, but the async case is more of a continuation passing style - injecting the put-function into the work function so that it can be supplied to the async http client as the handler function.  This is the only different in Work, so we won't dwell on it, as it is straightforward.
 
-    (client/post "http://site.com/api"
-      {:basic-auth ["user" "pass"]
-       :body "{\"json\": \"input\"}"
-       :headers {"X-Api-Version" "2"}
-       :content-type :json
-       :accept :json})
+From the client code perspective, you create an ansyc work poll by passing an :async keyword as the last argument to Work's queue-work function.
 
-A more general `response` function is also available, which is useful as a primitive for building higher-level interfaces:
+    (defn fetch-pool
+      [get-work put-done]
+      (work/queue-work
+       fetch
+       get-work
+       put-done
+       (work/available-processors)
+       :async))
 
-    (defn api-action [method path & [opts]]
-      (client/request
-        (merge {:method method :url (str "http://site.com/" path)} opts)))
+##Notes and Next Steps
 
-The client will throw exceptions on, well, exceptional status codes:
+Some other notables if you want to start using fetcher.
 
-    (client/get "http://site.com/broken")
-    => Exception: 500
+Handlers take: [key, url, headers, body]
 
-The client will also follow redirects on the appropriate `30*` status codes.
+Items in the fetch queue are always of the form: [key url & header-map]
 
-The client transparently accepts and decompresses the `gzip` and `deflate` content encodings.
+If you want to see examples of workflows that use fetcher as a step in a more complex pipeline, or how to deploy fetcher using crane, check out the crawler, which we will write about soon.
 
-## Installation
-
-`clj-http` is available as a Maven artifact from [Clojars](http://clojars.org/clj-http):
-
-    :dependencies
-      [[clj-http "0.1.2"] ...]
-
-## Design
-
-The design of `clj-http` is inspired by the [Ring](http://github.com/mmcgrana/ring) protocol for Clojure HTTP server applications.
-
-The client in `clj-http.core` makes HTTP requests according to a given Ring request map and returns Ring response maps corresponding to the resulting HTTP response. The function `clj-http.client/request` uses Ring-style middleware to layer functionality over the core HTTP request/response implementation. Methods like `clj-http.client/get` are sugar over this `clj-http.client/request` function.
-
-## Development
-
-To run the tests:
-
-    $ lein deps
-    $ lein run -m clj-http.run-server
-    $ lein test
-
-## License
-
-Released under the MIT License: <http://www.opensource.org/licenses/mit-license.php>
+Once we get fetcher working together with the rest of the systems we are building, we'll go through a wave of fine tuning for things like caching DNS lookups, HTTP pipelining, and ensuring that our writes are not a bottleneck (which current multicast to both disk and to a queue).  We'll also focus on robustness to non-standard redirects, character set detection, etc.

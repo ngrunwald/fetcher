@@ -81,7 +81,6 @@
      :else
      resp)))
 
-
 (defn strip-punc [^String s]
   (let [strip (some identity (map #(.endsWith s %)
                                   [";" ":" "." ","]))]
@@ -134,14 +133,18 @@
     (finally
      (.close body))))
 
-(defn output-coercion [req {:keys [body] :as resp}]
+(defn output-coercion
+  [as {:keys [body] :as resp}]
   (if (not (instance? java.io.InputStream body))
     resp
-    (assoc resp
-      :body (case (or (:as req) :string)
-		  :input-stream body
-		  :byte-array (IOUtils/toByteArray body)
-		  :string (encoded resp)))))
+    (let [in (cast java.io.InputStream body)]
+      (try
+	(assoc resp
+	  :body (case (or as :string)
+		      :input-stream body
+		      :byte-array (IOUtils/toByteArray body)
+		      :string (encoded resp)))
+	(finally (when-not (= as :input-stream) (.close in)))))))
 
 (defn input-coercion
   [{:keys [body] :as req}]
@@ -245,7 +248,7 @@
 (def default-params
   {ClientPNames/COOKIE_POLICY CookiePolicy/BROWSER_COMPATIBILITY
    ClientPNames/HANDLE_REDIRECTS true
-   ClientPNames/MAX_REDIRECTS 10
+   ClientPNames/MAX_REDIRECTS 10   
    ClientPNames/ALLOW_CIRCULAR_REDIRECTS true
    ClientPNames/REJECT_RELATIVE_REDIRECT false})
 
@@ -281,7 +284,7 @@
                  (.setDefaultMaxPerRoute max-per-route))]
        (config-client (DefaultHttpClient. mgr)
 		      {:params default-params
-                          :redirect-strategy (DefaultRedirectStrategy.)}))))
+		       :redirect-strategy (DefaultRedirectStrategy.)}))))
 
 (defn basic-http-client
   ([] (basic-http-client {:params default-params
@@ -324,8 +327,6 @@
      (build-url
       (update-in (parse-url resolved)
 		 [:query-string] strip-query-string))))
-
-
 
 (defn add-headers [^HttpRequest http-req
 		   {:keys [headers content-type character-encoding]}]
@@ -384,25 +385,28 @@
 	      :url http-url
 	      :redirects @redirects})))))
 
+(defn build-request [method accept-encoding url]
+  (-> url
+      ensure-parsed-url		   
+      (merge {:request-method method :accept-encoding accept-encoding})
+      content-type
+      basic-auth
+      wrap-accept-encoding
+      accept
+      query-params
+      basic-auth
+      input-coercion))
+
 (defn fetch
   ([method url]
      (fetch #(basic-http-client)
 	    method
 	    url))
-  ([client-pool method url
+  ([get-client method url
     & {:keys [accept-encoding]
        :or {accept-encoding gzip}}]
-     (let [req (-> url
-		   ensure-parsed-url		   
-                   (merge {:request-method method :accept-encoding accept-encoding})
-                   content-type
-                   basic-auth
-                   wrap-accept-encoding
-                   accept
-                   query-params
-                   basic-auth
-                   input-coercion)
-           resp (->> (request ^HttpClient (client-pool) req)
-                     decompress
-                     (output-coercion req))]
-       resp)))
+     (let [req (build-request method accept-encoding url)]
+       (->> req
+	    (request (get-client))
+	    decompress
+	    (output-coercion (:as req))))))

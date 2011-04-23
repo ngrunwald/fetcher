@@ -1,4 +1,4 @@
-(defproject fetcher "0.0.4-SNAPSHOT"
+(defproject fetcher "0.0.5-SNAPSHOT"
   :description "Clojure HTTP Fetching"
   :dependencies [[org.clojure/clojure "1.2.0"]
                  [org.clojure/clojure-contrib "1.2.0"]

@@ -135,23 +135,23 @@
 
 (deftest apply-on-output-coercion
   (let [resp (fetcher/output-coercion
-              {:as :byte-array}
+              :byte-array
               {:body (io/input-stream (.getBytes "foo"))})]
     (is (Arrays/equals (.getBytes "foo") (:body resp)))))
 
 (deftest input-stream-output-coercion
   (let [resp (fetcher/output-coercion
-	      {:as :input-stream}
+	      :input-stream
 	      {:body (io/input-stream (.getBytes "foo"))})]
     (is (instance? java.io.InputStream (:body resp)))
     (is (Arrays/equals (.getBytes "foo")
 		      (org.apache.commons.io.IOUtils/toByteArray (:body resp))))))
 
 (deftest pass-on-no-output-coercion
-  (let [resp (fetcher/output-coercion {} {:body nil})]
+  (let [resp (fetcher/output-coercion nil {:body nil})]
     (is (nil? (:body resp))))
   (let [resp (fetcher/output-coercion
-              {:as :byte-array}
+              :byte-array
               {:body :thebytes})]
     (is (= :thebytes (:body resp)))))
 
