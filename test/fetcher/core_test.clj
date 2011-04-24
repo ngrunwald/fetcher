@@ -18,7 +18,7 @@
    :server-port 8080})
 
 (deftest roundtrip
-  (let [resp (fetcher/fetch :get (merge base-req {:uri "/get"}))]
+  (let [resp (fetcher/fetch :get (merge base-req {:uri "/get"}))]	
     (is (= 200 (:status resp)))
     (is (= "close" (get-in resp [:headers "connection"])))
     (is (= "get" (:body resp)))))

@@ -399,10 +399,13 @@
 	      :url http-url
 	      :redirects @redirects})))))
 
-(defn build-request [method accept-encoding url]
-  (-> url
-      ensure-parsed-url		   
-      (merge {:request-method method :accept-encoding accept-encoding})
+(defn build-request [method  url-or-req]
+  (-> url-or-req
+      ensure-parsed-url
+      (merge {:accept-encoding
+	      (when-not (and (map? url-or-req) (:no-gzip? url-or-req))
+		gzip)
+	      :request-method method})
       content-type
       basic-auth
       wrap-accept-encoding
@@ -416,10 +419,8 @@
      (fetch #(basic-http-client)
 	    method
 	    url))
-  ([get-client method url
-    & {:keys [accept-encoding as]
-       :or {accept-encoding gzip}}]
-     (let [req (build-request method accept-encoding url)]
+  ([get-client method url-or-req]
+     (let [{:keys [as] :as req} (build-request method url-or-req)]
        (->> req
 	    (request (get-client))
 	    decompress
