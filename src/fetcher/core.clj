@@ -129,32 +129,31 @@
 	    (charset-html5 meta)))
       "UTF-8"))
 
-(defn encoded [{:keys [body] :as resp}]
+(defn encoded [{:keys [^java.io.InputStream body] :as resp}]
   (let [bytes (IOUtils/toByteArray body)
-	cs (charset (assoc resp :body (String. bytes "UTF-8")))]
+	^String cs (charset (assoc resp :body (String. bytes "UTF-8")))]
     (String. bytes cs)))
 
 (defn output-coercion
-  [as {:keys [headers body] :as resp}]
+  [as {:keys [headers ^java.io.InputStream body] :as resp}]
   (if (not (instance? java.io.InputStream body))
     resp
-    (let [in (cast java.io.InputStream body)]
-      (try
-	(assoc resp
-	  :body (case (or as :string)
-		      :input-stream body
-		      :byte-array (IOUtils/toByteArray body)
-		      :string (let [h (headers "content-type")
-				    render-string? (or (not h)
-						       (.contains h "html")
-						       (.contains h "xml")
-						       (.contains h "text")
-						       (.contains h "json")
-						       (.contains h "charset"))]
-				(if render-string?
-				  (encoded resp)
-				  body))))
-	(finally (when-not (= as :input-stream) (.close in)))))))
+    (try
+      (assoc resp
+	:body (case (or as :string)
+		    :input-stream body
+		    :byte-array (IOUtils/toByteArray body)
+		    :string (let [^String h (headers "content-type")
+				  render-string? (or (not h)
+						     (.contains h "html")
+						     (.contains h "xml")
+						     (.contains h "text")
+						     (.contains h "json")
+						     (.contains h "charset"))]
+			      (if render-string?
+				(encoded resp)
+				body))))
+      (finally (when-not (= as :input-stream) (.close in))))))
 
 (defn input-coercion
   [{:keys [body] :as req}]
@@ -273,8 +272,10 @@
   (let [^HttpParams client-params (.getParams client)]
     (doseq [[pk pv] params]
       (.setParameter client-params pk pv))
-    (.setParameter client-params CoreConnectionPNames/CONNECTION_TIMEOUT timeout)
-    (.setParameter client-params CoreConnectionPNames/SO_TIMEOUT timeout))
+    (.setIntParameter client-params CoreConnectionPNames/CONNECTION_TIMEOUT
+		      (int timeout))
+    (.setIntParameter client-params CoreConnectionPNames/SO_TIMEOUT
+		      (int timeout)))
   (doto client
     (.setRedirectStrategy redirect-strategy)
     (.setHttpRequestRetryHandler (DefaultHttpRequestRetryHandler. (int num-retries) true))))
@@ -365,7 +366,7 @@
 (defn create-request [{:keys [request-method headers
 			      content-type character-encoding body]
 		       :as components}]
-  (let [url (build-url components)]
+  (let [^String url (build-url components)]
     [url
      (->  (case request-method
 		:get    (HttpGet. url)
