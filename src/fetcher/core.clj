@@ -273,7 +273,8 @@
   (let [^HttpParams client-params (.getParams client)]
     (doseq [[pk pv] params]
       (.setParameter client-params pk pv))
-    (.setParameter client-params CoreConnectionPNames/CONNECTION_TIMEOUT timeout))
+    (.setParameter client-params CoreConnectionPNames/CONNECTION_TIMEOUT timeout)
+    (.setParameter client-params CoreConnectionPNames/SO_TIMEOUT timeout))
   (doto client
     (.setRedirectStrategy redirect-strategy)
     (.setHttpRequestRetryHandler (DefaultHttpRequestRetryHandler. (int num-retries) true))))
@@ -420,7 +421,7 @@
 	    method
 	    url))
   ([get-client method url-or-req]
-     (let [{:keys [as] :as req} (build-request method url-or-req)]
+     (let [{:keys [as] :as req } (build-request method url-or-req)]
        (->> req
 	    (request (get-client))
 	    decompress
