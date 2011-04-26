@@ -153,7 +153,7 @@
 			      (if render-string?
 				(encoded resp)
 				body))))
-      (finally (when-not (= as :input-stream) (.close in))))))
+      (finally (when-not (= as :input-stream) (.close body))))))
 
 (defn input-coercion
   [{:keys [body] :as req}]
