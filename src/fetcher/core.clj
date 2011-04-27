@@ -386,20 +386,23 @@
       {:keys [request-method
 	      headers content-type character-encoding body]
        :as components}]
-       (try
-	 (let [[http-url ^HttpRequest http-req]
+       (let [[http-url ^HttpRequest http-req]
 	       (create-request components)
 	       redirects (atom [])
 	       ^RedirectStrategy redirect-strategy
-	       (path-redirect-strategy redirects)]
-	   (.setRedirectStrategy http-client redirect-strategy)
-	   (let [^HttpResponse http-resp (.execute http-client http-req)]
-	     {:status (.getStatusCode (.getStatusLine http-resp))
-	      :headers (parse-headers http-resp)
-	      :body  (when-let [ent (.getEntity http-resp)]
-		       (.getContent ent))		
-	      :url http-url
-	      :redirects @redirects})))))
+	       (path-redirect-strategy redirects)]	
+	 (.setRedirectStrategy http-client redirect-strategy)	 
+	   (try
+	        (let [^HttpResponse http-resp (.execute http-client http-req)]
+		  {:status (.getStatusCode (.getStatusLine http-resp))
+		   :headers (parse-headers http-resp)
+		   :body  (when-let [ent (.getEntity http-resp)]
+			    (.getContent ent))		
+		   :url http-url
+		   :redirects @redirects})		
+	     (catch Exception e
+	       (.abort http-req)
+	       (throw e))))))
 
 (defn build-request [method  url-or-req]
   (-> url-or-req
