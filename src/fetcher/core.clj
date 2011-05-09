@@ -134,6 +134,13 @@
 	^String cs (charset (assoc resp :body (String. bytes "UTF-8")))]
     (String. bytes cs)))
 
+(defn consume-response [consume {:keys [body] :as resp}]
+  (cond
+   (instance? java.io.InputStream body)
+   (.close ^java.io.InputStream body)
+   (string? body)
+   (consume resp)))
+
 (defn output-coercion
   [as {:keys [headers ^java.io.InputStream body] :as resp}]
   (if (not (instance? java.io.InputStream body))
@@ -284,8 +291,8 @@
 (defn pooled-http-client
   "A threadsafe, single client using connection pools to various hosts."
   ([] (pooled-http-client {:ttl 120
-                           :max-total-conns 200
-                           :max-per-route 10
+                           :max-total-conns 1000
+                           :max-per-route 1000
                            :params default-params
                            :redirect-strategy (DefaultRedirectStrategy.)}))
   ([{:keys [ttl max-total-conns max-per-route]}]
