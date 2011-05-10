@@ -13,6 +13,4 @@
                      [ring/ring-jetty-adapter "0.3.5"]
                      [ring/ring-devel "0.3.5"]]
   :repositories {"java.net" "http://download.java.net/maven/2"
-                 "clojars" "http://clojars.org/repo"
-		 "snapshots" "http://mvn.getwoven.com/repos/woven-public-snapshots"
-                 "releases" "http://mvn.getwoven.com/repos/woven-public-releases"})
+                 "clojars" "http://clojars.org/repo"})
