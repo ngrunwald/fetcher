@@ -6,7 +6,7 @@
                  [org.apache.httpcomponents/httpcore "4.1"]
                  [clj-sys/plumbing "0.1.5-SNAPSHOT"]
                  [html-parse "0.0.1-SNAPSHOT"]
-                 [clj-time "0.3.0-SNAPSHOT"]
+                 [clj-time "0.4.0-SNAPSHOT"]
                  [commons-codec "1.4"]
                  [commons-io "1.4"]]
   :dev-dependencies [[swank-clojure "1.3.0-SNAPSHOT"]
