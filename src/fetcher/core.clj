@@ -25,13 +25,18 @@
 	   (org.apache.http.conn.ssl SSLSocketFactory)
 	   (org.apache.http.impl.conn.tsccm ThreadSafeClientConnManager)	   
 	   (java.util.concurrent TimeUnit)
-	   (java.net URL))
+	   (java.net URL)
+	   [java.security.cert X509Certificate]
+	   [javax.net.ssl  SSLContext TrustManager])
   (:require [clojure.contrib.logging :as log]
 	    [fetcher.core :as core]
 	    [fetcher.util :as util])
   (:use [html-parse.parser :only [dom elements attr-map head]]
 	[plumbing.error :only [-?>]]
 	[clojure.string :only [split trim join]]))
+
+;; (class (into-array X509Certificate []))
+
 
 (defn parse-url [^String url]
   (let [url-parsed (URL. url)
@@ -308,6 +313,26 @@
        (config-client (DefaultHttpClient. mgr)
 		      {:params default-params
 		       :redirect-strategy (DefaultRedirectStrategy.)}))))
+
+(set! *warn-on-reflection* true)
+
+(def no-op-trust-manager
+     (reify  javax.net.ssl.X509TrustManager
+	     (^void checkClientTrusted [this ^"[Ljava.security.cert.X509Certificate;" xcs ^String s])
+	     (^void checkServerTrusted [this ^"[Ljava.security.cert.X509Certificate;" xcs ^String s])
+	     (getAcceptedIssuers [this])))
+
+(defn wrap-ignore-ssl [^HttpClient client]  
+  (let [ctx (doto (SSLContext/getInstance "TLS")
+	      (.init nil ^"[Ljavax.net.ssl.TrustManager;"
+		            (into-array TrustManager [no-op-trust-manager])
+			    nil))
+	ssf (doto (SSLSocketFactory. ctx)
+	      (.setHostnameVerifier (SSLSocketFactory/ALLOW_ALL_HOSTNAME_VERIFIER)))
+	ccm (.getConnectionManager client)
+	sr (.getSchemeRegistry ccm)]
+    (.register sr (Scheme. "https" ssf 443))
+    (DefaultHttpClient. ccm (.getParams client))))
 
 (defn basic-http-client
   ([] (basic-http-client {:params default-params

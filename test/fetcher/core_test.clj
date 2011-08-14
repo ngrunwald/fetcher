@@ -310,8 +310,11 @@
    :server-name "localhost"
    :server-port 8080})
 
-(defn request [req]
-  (fetcher/request (merge base-req req)))
+(defn request
+  ([req]
+     (fetcher/request (merge base-req req)))
+  ([client req]
+     (fetcher/request client (merge base-req req))))
 
 (defn slurp-body [req]
   (io/slurp* (:body req)))
@@ -328,8 +331,18 @@
     (is (= 200 (:status resp)))
     (is (= "get" (slurp-body resp)))))
 
+(deftest makes-get-request-ignore-ssl
+  (let [resp (request (fetcher/wrap-ignore-ssl (fetcher/basic-http-client)) {:request-method :get :uri "/get"})]
+    (is (= 200 (:status resp)))
+    (is (= "get" (slurp-body resp)))))
+
 (deftest makes-head-request
   (let [resp (request {:request-method :head :uri "/head"})]
+    (is (= 200 (:status resp)))
+    (is (nil? (:body resp)))))
+
+(deftest makes-head-request-ignore-ssl
+  (let [resp (request (fetcher/wrap-ignore-ssl (fetcher/basic-http-client)) {:request-method :head :uri "/head"})]
     (is (= 200 (:status resp)))
     (is (nil? (:body resp)))))
 
