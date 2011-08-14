@@ -314,8 +314,6 @@
 		      {:params default-params
 		       :redirect-strategy (DefaultRedirectStrategy.)}))))
 
-(set! *warn-on-reflection* true)
-
 (def no-op-trust-manager
      (reify  javax.net.ssl.X509TrustManager
 	     (^void checkClientTrusted [this ^"[Ljava.security.cert.X509Certificate;" xcs ^String s])
