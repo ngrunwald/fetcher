@@ -142,7 +142,8 @@
 (defn consume-response [consume {:keys [body] :as resp}]
   (cond
    (instance? java.io.InputStream body)
-   (.close ^java.io.InputStream body)
+   (with-open [^java.io.InputStream body body]
+     (consume resp))
    (string? body)
    (consume resp)))
 
